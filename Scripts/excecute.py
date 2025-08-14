@@ -19,14 +19,24 @@ def load_config(config_path):
     """
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        return config
+            return yaml.safe_load(f)
     except FileNotFoundError:
         print(
             f"Fehler: Konfigurationsdatei nicht gefunden unter {config_path}")
         return None
     except yaml.YAMLError as e:
         print(f"Fehler beim Parsen der YAML-Datei {config_path}: {e}")
+        return None
+    
+def load_json(json_path):
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Fehler: JSON-Datei nicht gefunden unter {json_path}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"Fehler beim Parsen der JSON-Datei {json_path}: {e}")
         return None
 
 
