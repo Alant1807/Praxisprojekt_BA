@@ -1,0 +1,29 @@
+# requirements.in
+
+# ---- Core Data Science & Visualisierung ----
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn # Oft eine Kernabhängigkeit in ML-Projekten
+
+# ---- Deep Learning (PyTorch & Anomalib) ----
+torch
+torchvision
+anomalib # Eine deiner Hauptbibliotheken
+timm     # Notwendig für den TimmFeatureExtractor
+
+# ---- Jupyter & Interaktivität ----
+# Für das Ausführen von .ipynb-Dateien und interaktive Widgets
+jupyter
+streamlit # Falls du eine Web-App planst/nutzt
+
+# ---- Datenbank & Web ----
+supabase      # Für die Datenbankverbindung
+requests      # Für HTTP-Anfragen
+python-dotenv # Zum Laden der .env-Datei
+
+# ---- Hilfsprogramme ----
+Pillow  # Für die Bildverarbeitung (aus 'from PIL import Image')
+tqdm    # Für Fortschrittsbalken
+PyYAML  # Für das Einlesen von YAML-Dateien (aus 'import yaml') 

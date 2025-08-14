@@ -1,0 +1,31 @@
+{
+    "training_id": "d14430a7-009a-4e2a-826a-100e404c93ec",
+    "timestamp": "2025-07-29_09-56-45",
+    "dataset_name": "MVTecAD_grid",
+    "model_architecture": "tf_efficientnet_lite1",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_grid/tf_efficientnet_lite1/d14430a7-009a-4e2a-826a-100e404c93ec/STFPM_Config_tf_efficientnet_lite1.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 1096.1752846240997,
+        "final_train_loss": 37.12008047103882,
+        "best_train_loss": 36.566253781318665,
+        "best_epoch": 192,
+        "avg_epoch_duration": 3.4881141352653504
+    },
+    "evaluation_performance": {
+        "auroc_score": 0.9908103592314119,
+        "best_auroc_score": 0.9908103592314119,
+        "inference_time": 0.6212349272891879
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_grid/tf_efficientnet_lite1/d14430a7-009a-4e2a-826a-100e404c93ec/weights/tf_efficientnet_lite1_grid_d14430a7-009a-4e2a-826a-100e404c93ec_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_grid/tf_efficientnet_lite1/d14430a7-009a-4e2a-826a-100e404c93ec/weights/tf_efficientnet_lite1_grid_d14430a7-009a-4e2a-826a-100e404c93ec_best_student.pth"
+    }
+}

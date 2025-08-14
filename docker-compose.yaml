@@ -1,0 +1,14 @@
+services:
+  praxisprojekt-server:
+    # Baue das Image aus dem Dockerfile mit dem interaktiven CMD
+    build: .
+    container_name: mein-jupyter-server
+    # Lade die Umgebungsvariablen aus der .env-Datei im Scripts-Ordner
+    env_file:
+      - ./Scripts/.env
+    # Port-Mapping: Mappe Port 8888 des Hosts auf Port 8888 im Container
+    ports:
+      - "8888:8888"
+    # Binde das gesamte Projektverzeichnis ein, um live arbeiten zu können
+    volumes:
+      - ./:/app
