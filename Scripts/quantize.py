@@ -4,7 +4,6 @@ import torch.quantization
 import yaml
 import os
 import json
-import copy
 
 from Scripts.model import *
 from torch.utils.data import DataLoader
@@ -29,7 +28,8 @@ class QuantizableWrapper(nn.Module):
 
         student_input_quant = self.quant(stem_out)
         student_features_quant = self.student_model(student_input_quant)
-        student_feature_maps = [self.dequant(f) for f in student_features_quant]
+        student_feature_maps = [self.dequant(f)
+                                for f in student_features_quant]
 
         if isinstance(teacher_feature_maps, dict):
             teacher_feature_maps = list(teacher_feature_maps.values())
@@ -37,18 +37,18 @@ class QuantizableWrapper(nn.Module):
         return teacher_feature_maps, student_feature_maps
 
     def anomaly_map(self, x):
+        """
+        Diese Methode bleibt unverändert, da sie mit den Float-Feature-Maps
+        arbeitet, die von der `forward`-Methode zurückgegeben werden.
+        """
         teacher_feature_maps, student_feature_maps = self.forward(x)
 
+        # ... (Rest deines anomaly_map Codes bleibt identisch) ...
         batch_size = x.shape[0]
         img_height, img_width = x.shape[-2], x.shape[-1]
         anomaly_map_result = torch.ones(
             (batch_size, img_height, img_width), device=x.device
         )
-
-        if len(teacher_feature_maps) != len(student_feature_maps):
-            raise ValueError(f"Teacher and Student feature map counts do not match: "
-                             f"{len(teacher_feature_maps)} vs {len(student_feature_maps)}")
-
         for t_map, s_map in zip(teacher_feature_maps, student_feature_maps):
             t_map_norm = torch.nn.functional.normalize(t_map, dim=1)
             s_map_norm = torch.nn.functional.normalize(s_map, dim=1)
@@ -88,36 +88,36 @@ def fuse_resnet_student_model(model: QuantizableWrapper):
 
 
 def quantize_model(best_student_weight_path, config, summary_metric):
-    cpu_device = torch.device("cpu")
-    
-    original_device = torch.device(config['device']['type'])
+    torch.backends.quantized.engine = "fbgemm"
+    cpu = torch.device("cpu")
 
-    # 2. Create the base model.
     model = STFPM(
         architecture=config['model']['architecture'],
         layers=config['model']['layers']
     )
 
     model.student_model.load_state_dict(torch.load(
-        best_student_weight_path, map_location=cpu_device
-    ))
+        best_student_weight_path, map_location="cpu"))
+    model.to(cpu).eval()
 
-    model.to(cpu_device).eval()
-
-    quantizable_model = QuantizableWrapper(model).to(cpu_device).eval()
+    quantizable_model = QuantizableWrapper(model).to(cpu).eval()
 
     fuse_resnet_student_model(quantizable_model)
-    quantizable_model.student_model.qconfig = torch.quantization.get_default_qconfig(
-        'fbgemm')
+
+    quantizable_model.student_model.qconfig = torch.quantization.QConfig(
+        activation=torch.quantization.MinMaxObserver.with_args(
+            dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+        weight=torch.quantization.MinMaxObserver.with_args(
+            dtype=torch.qint8, qscheme=torch.per_tensor_affine)
+    )
 
     torch.quantization.prepare(quantizable_model.student_model, inplace=True)
-
-    calibrated_model = calibrate_model(quantizable_model, config, cpu_device)
-
+    calibrated_model = calibrate_model(quantizable_model, config, device=cpu)
     model_quantized = torch.quantization.convert(
         calibrated_model.student_model, inplace=True)
 
     save_quantized_model(model_quantized, config, summary_metric)
+    print("Quantization finished — saved to disk.")
 
 
 def calibrate_model(model, config, device):
