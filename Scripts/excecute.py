@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from Scripts.model import *
 from Scripts.trainer import *
 from Scripts.results_manager import *
+from Scripts.asymmetric_model import *
 
 
 def load_config(config_path):
@@ -27,7 +28,8 @@ def load_config(config_path):
     except yaml.YAMLError as e:
         print(f"Fehler beim Parsen der YAML-Datei {config_path}: {e}")
         return None
-    
+
+
 def load_json(json_path):
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
@@ -66,64 +68,65 @@ def training_selected_class(config_path, selected_class):
                                 f"Überspringe {full_config_path}, da die Klasse nicht '{selected_class}' ist.")
                             continue
 
-                        try:
-                            training_set = MVTecDataset(
-                                img_size=config['dataset']['img_size'],
-                                base_path=config['dataset']['base_path'],
-                                cls=config['dataset']['class'],
-                                mode='train',
-                                subfolders=['good']
-                            )
+                        training_set = MVTecDataset(
+                            img_size=config['dataset']['img_size'],
+                            base_path=config['dataset']['base_path'],
+                            cls=config['dataset']['class'],
+                            mode='train',
+                            subfolders=['good']
+                        )
 
-                            test_set = MVTecDataset(
-                                img_size=config['dataset']['img_size'],
-                                base_path=config['dataset']['base_path'],
-                                cls=config['dataset']['class'],
-                                mode='test',
-                            )
+                        test_set = MVTecDataset(
+                            img_size=config['dataset']['img_size'],
+                            base_path=config['dataset']['base_path'],
+                            cls=config['dataset']['class'],
+                            mode='test',
+                        )
 
-                            train_loader = DataLoader(
-                                training_set,
-                                batch_size=config['dataloader']['batch_size'],
-                                shuffle=True
-                            )
+                        train_loader = DataLoader(
+                            training_set,
+                            batch_size=config['dataloader']['batch_size'],
+                            shuffle=True
+                        )
 
-                            test_loader = DataLoader(
-                                test_set,
-                                batch_size=config['dataloader']['batch_size'],
-                                shuffle=False
+                        test_loader = DataLoader(
+                            test_set,
+                            batch_size=config['dataloader']['batch_size'],
+                            shuffle=False
+                        )
+                        if config.get('model', {}).get('asymmetric', False):
+                            print("Verwende asymmetrisches Modell.")
+                            model = AsymmetricSTFPM(
+                                teacher_architecture=config['model']['teacher_architecture'],
+                                student_architecture=config['model']['student_architecture'],
+                                layers=config['model']['layers']
                             )
-
+                        else:
                             model = STFPM(
                                 architecture=config['model']['architecture'],
                                 layers=config['model']['layers']
                             )
 
-                            trainer = Trainer(
-                                model=model,
-                                train_loader=train_loader,
-                                test_loader=test_loader,
-                                config=config
-                            )
+                        trainer = Trainer(
+                            model=model,
+                            train_loader=train_loader,
+                            test_loader=test_loader,
+                            config=config
+                        )
 
-                            print(
-                                f"Starte Training für Konfiguration: {config_file}...")
-                            trainer.train()
+                        print(
+                            f"Starte Training für Konfiguration: {config_file}...")
+                        trainer.train()
 
-                            print(
-                                f"Training für Konfiguration {config_file} abgeschlossen.")
+                        print(
+                            f"Training für Konfiguration {config_file} abgeschlossen.")
 
-                            model_variant_path = os.path.join(
-                                trainer.train_folder_dir,
-                                f"{config['dataset']['name']}_{config['dataset']['class']}",
-                                config['model']['architecture']
-                            )
-                            trained_model_variant_paths.add(model_variant_path)
-
-                        except Exception as e:
-                            print(
-                                f"Fehler beim Erstellen von Dataset/DataLoader oder beim Training für {full_config_path}: {e}")
-                            continue
+                        model_variant_path = os.path.join(
+                            trainer.train_folder_dir,
+                            f"{config['dataset']['name']}_{config['dataset']['class']}",
+                            config['model']['architecture']
+                        )
+                        trained_model_variant_paths.add(model_variant_path)
 
     print("\n--- Alle Trainingsläufe abgeschlossen. Starte Aggregation der Modellvarianten-Zusammenfassungen. ---")
     if not trained_model_variant_paths:

@@ -11,10 +11,10 @@ def generate_asymmetric_configs():
     ]
 
     base_configs = {
-        "mobilenetv4_teacher_mobilenetv3_student": {
+        "mobilenetv4large_teacher_mobilenetv4small_student": {
             "model": {
-                "teacher_architecture": "mobilenetv4_conv_medium",
-                "student_architecture": "mobilenetv3_large_100",
+                "teacher_architecture": "mobilenetv4_conv_large",
+                "student_architecture": "mobilenetv4_conv_small",
                 "layers": ["blocks.0", "blocks.1", "blocks.2", "blocks.4"],
                 "asymmetric": True
             }
@@ -38,7 +38,7 @@ def generate_asymmetric_configs():
             "type": "OneCycleLR",
             "params": {"max_lr": 0.01, "epochs": 200},
         },
-        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": True},
+        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": False},
     }
 
     output_dir = "Asymmetric_Configs"
@@ -55,3 +55,6 @@ def generate_asymmetric_configs():
                 yaml.dump(config, f, sort_keys=False)
 
     print(f"Alle Konfigurationen wurden im Ordner '{output_dir}' erstellt.")
+
+if __name__ == "__main__":
+    generate_asymmetric_configs()

@@ -60,31 +60,91 @@ class QuantizableWrapper(nn.Module):
             anomaly_map_result = torch.mul(anomaly_map_result, am)
 
         return anomaly_map_result
+    
 
+def fuse_student_model(model: QuantizableWrapper, config):
+    """
+    Fused Conv+BN(+ReLU) Blöcke für ResNet-, MobileNet- oder EfficientNet-Student-Modelle.
+    Erkennt automatisch, welches Modell in config['model']['architecture'] steckt.
+    
+    Args:
+        model: QuantizableWrapper oder ähnliches Objekt mit model.feature_extractor.
+        config: dict mit 'model' -> 'architecture'
+    """
+    import torch
 
-def fuse_resnet_student_model(model: QuantizableWrapper):
+    arch = config['model']['architecture'].lower()
     feature_extractor = model.student_model.feature_extractor
 
-    for layer_name in ["layer1", "layer2", "layer3", "layer4"]:
-        layer = getattr(feature_extractor, layer_name, None)
-        if layer is None:
-            print(
-                f"[WARN] Layer '{layer_name}' nicht gefunden im student_model.")
-            continue
+    # -------------------
+    # ResNet-Fusion
+    # -------------------
+    if 'resnet' in arch:
+        print("[Quantization] Fusing ResNet layers...")
+        for layer_name in ["layer1", "layer2", "layer3", "layer4"]:
+            if not hasattr(feature_extractor, layer_name):
+                continue
+            layer = getattr(feature_extractor, layer_name)
+            for i, block in enumerate(layer):
+                torch.quantization.fuse_modules(
+                    block, ["conv1", "bn1", "act1"], inplace=True)
+                torch.quantization.fuse_modules(
+                    block, ["conv2", "bn2", "act2"], inplace=True)
+                if hasattr(block, "downsample") and isinstance(block.downsample, torch.nn.Sequential):
+                    torch.quantization.fuse_modules(
+                        block.downsample, ["0", "1"], inplace=True)
 
-        for i, block in enumerate(layer):
-            if hasattr(block, 'conv1') and hasattr(block, 'bn1') and hasattr(block, 'act1'):
-                torch.quantization.fuse_modules(
-                    block,
-                    ["conv1", "bn1", "act1"],
-                    inplace=True
-                )
-            if hasattr(block, 'conv2') and hasattr(block, 'bn2') and hasattr(block, 'act2'):
-                torch.quantization.fuse_modules(
-                    block,
-                    ["conv2", "bn2", "act2"],
-                    inplace=True
-                )
+    # -------------------
+    # MobileNetV3-Fusion
+    # -------------------
+    elif 'mobilenet' in arch:
+        print("[Quantization] Fusing MobileNetV3 layers...")
+        for name, m in feature_extractor.named_modules():
+            if isinstance(m, torch.nn.Sequential):
+                modules_to_fuse = []
+                for idx, child in enumerate(m):
+                    if isinstance(child, torch.nn.Conv2d):
+                        if idx + 1 < len(m) and isinstance(m[idx + 1], torch.nn.BatchNorm2d):
+                            if idx + 2 < len(m) and isinstance(m[idx + 2], (torch.nn.ReLU, torch.nn.ReLU6, torch.nn.SiLU)):
+                                modules_to_fuse.append(
+                                    [str(idx), str(idx+1), str(idx+2)])
+                            else:
+                                modules_to_fuse.append([str(idx), str(idx+1)])
+                for fuse_pair in modules_to_fuse:
+                    try:
+                        torch.quantization.fuse_modules(
+                            m, fuse_pair, inplace=True)
+                    except Exception as e:
+                        print(f"Skipping fusion for {name} - {fuse_pair}: {e}")
+
+    # -------------------
+    # EfficientNet-Fusion
+    # -------------------
+    elif 'efficientnet' in arch:
+        print("[Quantization] Fusing EfficientNet layers...")
+        for stage_idx, stage in enumerate(feature_extractor.blocks):
+            for block_idx, block in enumerate(stage):
+                # DepthwiseSeparableConv fusion
+                if hasattr(block, "conv_dw") and hasattr(block, "bn1"):
+                    torch.quantization.fuse_modules(
+                        block, ["conv_dw", "bn1"], inplace=True)
+                if hasattr(block, "conv_pw") and hasattr(block, "bn2"):
+                    torch.quantization.fuse_modules(
+                        block, ["conv_pw", "bn2"], inplace=True)
+                # InvertedResidual fusion (falls vorhanden)
+                if hasattr(block, "conv_pw") and hasattr(block, "bn1"):
+                    torch.quantization.fuse_modules(
+                        block, ["conv_pw", "bn1"], inplace=True)
+                if hasattr(block, "conv_dw") and hasattr(block, "bn2"):
+                    torch.quantization.fuse_modules(
+                        block, ["conv_dw", "bn2"], inplace=True)
+                if hasattr(block, "conv_pwl") and hasattr(block, "bn3"):
+                    torch.quantization.fuse_modules(
+                        block, ["conv_pwl", "bn3"], inplace=True)
+    else:
+        print(f"[Quantization] Keine bekannte Fusing-Logik für Architektur '{arch}' gefunden.")
+
+
 
 
 def quantize_model(best_student_weight_path, config, summary_metric):
@@ -102,13 +162,13 @@ def quantize_model(best_student_weight_path, config, summary_metric):
 
     quantizable_model = QuantizableWrapper(model).to(cpu).eval()
 
-    fuse_resnet_student_model(quantizable_model)
+    fuse_student_model(quantizable_model, config)
 
     quantizable_model.student_model.qconfig = torch.quantization.QConfig(
         activation=torch.quantization.MinMaxObserver.with_args(
-            dtype=torch.quint8, qscheme=torch.per_tensor_affine),
+            dtype=torch.quint8, qscheme=torch.per_tensor_symmetric),
         weight=torch.quantization.MinMaxObserver.with_args(
-            dtype=torch.qint8, qscheme=torch.per_tensor_affine)
+            dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
     )
 
     torch.quantization.prepare(quantizable_model.student_model, inplace=True)
