@@ -1,0 +1,31 @@
+{
+    "training_id": "9d3be288-3822-424e-a2f8-5879be6aa399",
+    "timestamp": "2025-08-15_06-34-45",
+    "dataset_name": "MVTecAD_toothbrush",
+    "model_architecture": "resnet18",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_toothbrush/resnet18/9d3be288-3822-424e-a2f8-5879be6aa399/STFPM_Config_resnet18.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 855.1771471500397,
+        "final_train_loss": 14.501829147338867,
+        "best_train_loss": 14.501829147338867,
+        "best_epoch": 200,
+        "avg_epoch_duration": 2.4875340378284454
+    },
+    "evaluation_performance": {
+        "auroc_score": 0.7333333333333334,
+        "best_auroc_score": 0.7833333333333332,
+        "inference_time": 0.16324032535776495
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_toothbrush/resnet18/9d3be288-3822-424e-a2f8-5879be6aa399/weights/resnet18_toothbrush_9d3be288-3822-424e-a2f8-5879be6aa399_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_toothbrush/resnet18/9d3be288-3822-424e-a2f8-5879be6aa399/weights/resnet18_toothbrush_9d3be288-3822-424e-a2f8-5879be6aa399_best_student.pth"
+    }
+}

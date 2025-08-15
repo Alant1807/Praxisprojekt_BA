@@ -1,0 +1,31 @@
+{
+    "training_id": "f07b3762-1522-4748-bb8c-60cfbcfa621b",
+    "timestamp": "2025-08-14_11-30-37",
+    "dataset_name": "MVTecAD_bottle",
+    "model_architecture": "mobilenetv3_large_100",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_bottle/mobilenetv3_large_100/f07b3762-1522-4748-bb8c-60cfbcfa621b/STFPM_Config_mobilenetv3_large_100.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 966.6005625724792,
+        "final_train_loss": 30.797696352005005,
+        "best_train_loss": 30.787078619003296,
+        "best_epoch": 197,
+        "avg_epoch_duration": 2.832611048221588
+    },
+    "evaluation_performance": {
+        "auroc_score": 0.9984126984126984,
+        "best_auroc_score": 0.9992063492063492,
+        "inference_time": 0.3554934691078961
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_bottle/mobilenetv3_large_100/f07b3762-1522-4748-bb8c-60cfbcfa621b/weights/mobilenetv3_large_100_bottle_f07b3762-1522-4748-bb8c-60cfbcfa621b_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_bottle/mobilenetv3_large_100/f07b3762-1522-4748-bb8c-60cfbcfa621b/weights/mobilenetv3_large_100_bottle_f07b3762-1522-4748-bb8c-60cfbcfa621b_best_student.pth"
+    }
+}

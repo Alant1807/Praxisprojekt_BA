@@ -1,0 +1,2 @@
+training_id,timestamp,model,used_memory_format,used_amp_mices_precision,dataset_class,used_layer,img_size,batch_size,optimizer_type,learning_rate,scheduler_type,num_epochs,total_training_time,avg_epoch_duration,final_train_loss,best_train_loss,best_epoch,auroc_score,best_auc_score,inference_times
+22a1ec46-6ca8-42ec-8889-6a2956edf095,2025-08-14_09-25-55,resnet18,torch.channels_last,True,bottle,"['layer1', 'layer2', 'layer3', 'layer4']",256,64,AdamW,0.001,OneCycleLR,200,920.4827437400818,2.6371566355228424,23.322973012924194,23.306689500808716,196,1.0,1.0,0.32624168107286095

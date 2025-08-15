@@ -1,0 +1,31 @@
+{
+    "training_id": "22a1ec46-6ca8-42ec-8889-6a2956edf095",
+    "timestamp": "2025-08-14_09-25-55",
+    "dataset_name": "MVTecAD_bottle",
+    "model_architecture": "resnet18",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_bottle/resnet18/22a1ec46-6ca8-42ec-8889-6a2956edf095/STFPM_Config_resnet18.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 920.4827437400818,
+        "final_train_loss": 23.322973012924194,
+        "best_train_loss": 23.306689500808716,
+        "best_epoch": 196,
+        "avg_epoch_duration": 2.6371566355228424
+    },
+    "evaluation_performance": {
+        "auroc_score": 1.0,
+        "best_auroc_score": 1.0,
+        "inference_time": 0.32624168107286095
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_bottle/resnet18/22a1ec46-6ca8-42ec-8889-6a2956edf095/weights/resnet18_bottle_22a1ec46-6ca8-42ec-8889-6a2956edf095_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_bottle/resnet18/22a1ec46-6ca8-42ec-8889-6a2956edf095/weights/resnet18_bottle_22a1ec46-6ca8-42ec-8889-6a2956edf095_best_student.pth"
+    }
+}
