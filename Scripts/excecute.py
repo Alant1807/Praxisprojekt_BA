@@ -299,9 +299,7 @@ def inference_model(training_run_folder, inference_output_dir):
             test_loader = DataLoader(
                 test_set,
                 batch_size=config_data['dataloader']['batch_size'],
-                shuffle=False,
-                num_workers=4,
-                pin_memory=True
+                shuffle=False
             )
         except Exception as e:
             print(

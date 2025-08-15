@@ -1,187 +1,72 @@
 import torch
 from torch import nn
-import torch.quantization
+# Aktualisierte Imports für die neue API
+from torch.ao.quantization.quantize_fx import prepare_fx, convert_fx
+from torch.ao.quantization.qconfig_mapping import get_default_qconfig_mapping
+
 import yaml
 import os
 import json
 
-from Scripts.model import *
+from Scripts.model import STFPM
 from torch.utils.data import DataLoader
-from Scripts.dataset import *
-
-
-class QuantizableWrapper(nn.Module):
-    def __init__(self, model: STFPM):
-        super().__init__()
-        self.quant = torch.quantization.QuantStub()
-        self.dequant = torch.quantization.DeQuantStub()
-
-        self.stem = model.stem_model
-
-        self.teacher_model = model.teacher_model
-        self.student_model = model.student_model
-
-    def forward(self, x):
-        stem_out = self.stem(x)
-        with torch.no_grad():
-            teacher_feature_maps = self.teacher_model(stem_out)
-
-        student_input_quant = self.quant(stem_out)
-        student_features_quant = self.student_model(student_input_quant)
-        student_feature_maps = [self.dequant(f)
-                                for f in student_features_quant]
-
-        if isinstance(teacher_feature_maps, dict):
-            teacher_feature_maps = list(teacher_feature_maps.values())
-
-        return teacher_feature_maps, student_feature_maps
-
-    def anomaly_map(self, x):
-        """
-        Diese Methode bleibt unverändert, da sie mit den Float-Feature-Maps
-        arbeitet, die von der `forward`-Methode zurückgegeben werden.
-        """
-        teacher_feature_maps, student_feature_maps = self.forward(x)
-
-        # ... (Rest deines anomaly_map Codes bleibt identisch) ...
-        batch_size = x.shape[0]
-        img_height, img_width = x.shape[-2], x.shape[-1]
-        anomaly_map_result = torch.ones(
-            (batch_size, img_height, img_width), device=x.device
-        )
-        for t_map, s_map in zip(teacher_feature_maps, student_feature_maps):
-            t_map_norm = torch.nn.functional.normalize(t_map, dim=1)
-            s_map_norm = torch.nn.functional.normalize(s_map, dim=1)
-            am = 0.5 * torch.sum(torch.pow(t_map_norm - s_map_norm, 2), dim=1)
-            am = nn.Upsample(size=(img_height, img_width), mode="bilinear", align_corners=False)(
-                am.unsqueeze(1)
-            )
-            am = am.squeeze(1)
-            anomaly_map_result = torch.mul(anomaly_map_result, am)
-
-        return anomaly_map_result
-    
-
-def fuse_student_model(model: QuantizableWrapper, config):
-    """
-    Fused Conv+BN(+ReLU) Blöcke für ResNet-, MobileNet- oder EfficientNet-Student-Modelle.
-    Erkennt automatisch, welches Modell in config['model']['architecture'] steckt.
-    
-    Args:
-        model: QuantizableWrapper oder ähnliches Objekt mit model.feature_extractor.
-        config: dict mit 'model' -> 'architecture'
-    """
-    import torch
-
-    arch = config['model']['architecture'].lower()
-    feature_extractor = model.student_model.feature_extractor
-
-    # -------------------
-    # ResNet-Fusion
-    # -------------------
-    if 'resnet' in arch:
-        print("[Quantization] Fusing ResNet layers...")
-        for layer_name in ["layer1", "layer2", "layer3", "layer4"]:
-            if not hasattr(feature_extractor, layer_name):
-                continue
-            layer = getattr(feature_extractor, layer_name)
-            for i, block in enumerate(layer):
-                torch.quantization.fuse_modules(
-                    block, ["conv1", "bn1", "act1"], inplace=True)
-                torch.quantization.fuse_modules(
-                    block, ["conv2", "bn2", "act2"], inplace=True)
-                if hasattr(block, "downsample") and isinstance(block.downsample, torch.nn.Sequential):
-                    torch.quantization.fuse_modules(
-                        block.downsample, ["0", "1"], inplace=True)
-
-    # -------------------
-    # MobileNetV3-Fusion
-    # -------------------
-    elif 'mobilenet' in arch:
-        print("[Quantization] Fusing MobileNetV3 layers...")
-        for name, m in feature_extractor.named_modules():
-            if isinstance(m, torch.nn.Sequential):
-                modules_to_fuse = []
-                for idx, child in enumerate(m):
-                    if isinstance(child, torch.nn.Conv2d):
-                        if idx + 1 < len(m) and isinstance(m[idx + 1], torch.nn.BatchNorm2d):
-                            if idx + 2 < len(m) and isinstance(m[idx + 2], (torch.nn.ReLU, torch.nn.ReLU6, torch.nn.SiLU)):
-                                modules_to_fuse.append(
-                                    [str(idx), str(idx+1), str(idx+2)])
-                            else:
-                                modules_to_fuse.append([str(idx), str(idx+1)])
-                for fuse_pair in modules_to_fuse:
-                    try:
-                        torch.quantization.fuse_modules(
-                            m, fuse_pair, inplace=True)
-                    except Exception as e:
-                        print(f"Skipping fusion for {name} - {fuse_pair}: {e}")
-
-    # -------------------
-    # EfficientNet-Fusion
-    # -------------------
-    elif 'efficientnet' in arch:
-        print("[Quantization] Fusing EfficientNet layers...")
-        for stage_idx, stage in enumerate(feature_extractor.blocks):
-            for block_idx, block in enumerate(stage):
-                # DepthwiseSeparableConv fusion
-                if hasattr(block, "conv_dw") and hasattr(block, "bn1"):
-                    torch.quantization.fuse_modules(
-                        block, ["conv_dw", "bn1"], inplace=True)
-                if hasattr(block, "conv_pw") and hasattr(block, "bn2"):
-                    torch.quantization.fuse_modules(
-                        block, ["conv_pw", "bn2"], inplace=True)
-                # InvertedResidual fusion (falls vorhanden)
-                if hasattr(block, "conv_pw") and hasattr(block, "bn1"):
-                    torch.quantization.fuse_modules(
-                        block, ["conv_pw", "bn1"], inplace=True)
-                if hasattr(block, "conv_dw") and hasattr(block, "bn2"):
-                    torch.quantization.fuse_modules(
-                        block, ["conv_dw", "bn2"], inplace=True)
-                if hasattr(block, "conv_pwl") and hasattr(block, "bn3"):
-                    torch.quantization.fuse_modules(
-                        block, ["conv_pwl", "bn3"], inplace=True)
-    else:
-        print(f"[Quantization] Keine bekannte Fusing-Logik für Architektur '{arch}' gefunden.")
-
-
+from Scripts.dataset import MVTecDataset
 
 
 def quantize_model(best_student_weight_path, config, summary_metric):
+    """
+    Führt die statische Quantisierung im FX Graph Mode durch.
+    """
+    print("--- Starte Quantisierungsprozess im FX Graph Mode ---")
     torch.backends.quantized.engine = "fbgemm"
-    cpu = torch.device("cpu")
+    cpu_device = torch.device("cpu")
 
+    # 1. Modell laden
+    print("Lade Modell...")
     model = STFPM(
         architecture=config['model']['architecture'],
         layers=config['model']['layers']
     )
-
+    # Lade die Gewichte direkt in das student_model
     model.student_model.load_state_dict(torch.load(
         best_student_weight_path, map_location="cpu"))
-    model.to(cpu).eval()
+    model.to(cpu_device).eval()
 
-    quantizable_model = QuantizableWrapper(model).to(cpu).eval()
+    # Wir quantisieren nur das student_model
+    student_model = model.student_model
+    student_model.eval()
 
-    fuse_student_model(quantizable_model, config)
+    # 2. Quantisierung vorbereiten (prepare_fx)
+    print("Bereite das Modell für die Quantisierung vor (prepare_fx)...")
+    # Verwende die neue get_default_qconfig_mapping Funktion
+    qconfig_mapping = get_default_qconfig_mapping("fbgemm")
 
-    quantizable_model.student_model.qconfig = torch.quantization.QConfig(
-        activation=torch.quantization.MinMaxObserver.with_args(
-            dtype=torch.quint8, qscheme=torch.per_tensor_symmetric),
-        weight=torch.quantization.MinMaxObserver.with_args(
-            dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
-    )
+    # Beispiel-Input für den Tracer
+    example_inputs = (torch.randn(1, 3, 256, 256),)
 
-    torch.quantization.prepare(quantizable_model.student_model, inplace=True)
-    calibrated_model = calibrate_model(quantizable_model, config, device=cpu)
-    model_quantized = torch.quantization.convert(
-        calibrated_model.student_model, inplace=True)
+    prepared_model = prepare_fx(student_model, qconfig_mapping, example_inputs)
 
-    save_quantized_model(model_quantized, config, summary_metric)
-    print("Quantization finished — saved to disk.")
+    # 3. Kalibrierung
+    print("Starte Kalibrierung...")
+    calibrate_model(prepared_model, model.stem_model, config, cpu_device)
+    print("Kalibrierung abgeschlossen.")
+
+    # 4. Modell konvertieren (convert_fx)
+    print("Konvertiere Modell...")
+    quantized_model = convert_fx(prepared_model)
+    print("Modell erfolgreich quantisiert.")
+
+    # Speichern des quantisierten Modells
+    save_quantized_model(quantized_model, config, summary_metric)
 
 
-def calibrate_model(model, config, device):
+def calibrate_model(model, stem_model, config, device):
+    """
+    Kalibriert das vorbereitete FX-Modell.
+    """
     model.eval()
+    stem_model.eval()
+
     train_set = MVTecDataset(
         img_size=config['dataset']['img_size'],
         base_path=config['dataset']['base_path'],
@@ -197,20 +82,22 @@ def calibrate_model(model, config, device):
     with torch.no_grad():
         for i, (images, _, _, _) in enumerate(train_loader):
             if i >= 10:
-                print("Calibration complete.")
                 break
             images = images.to(device)
-            model(images)
-    return model
+            stem_output = stem_model(images)
+            model(stem_output)
+
+# Die save_quantized_model Funktion bleibt unverändert
 
 
 def save_quantized_model(model, config, summary_metric):
     save_path = os.path.join(
         'quantized_models',
         f"{config['model']['architecture']}",
-        f"{summary_metric['training_id']}"
+        f"{summary_metric.get('training_id', 'quantized_run')}"
     )
     os.makedirs(save_path, exist_ok=True)
+
     yaml_path = os.path.join(
         save_path, f"STFPM_Config_{config['model']['architecture']}.yaml")
     with open(yaml_path, 'w') as f:
@@ -218,7 +105,9 @@ def save_quantized_model(model, config, summary_metric):
 
     summary_metric_path = os.path.join(save_path, 'summary_metric.json')
     with open(summary_metric_path, 'w') as f:
-        json.dump(summary_metric, f)
+        json.dump(summary_metric, f, indent=4)
 
     torch.save(model.state_dict(), os.path.join(
         save_path, 'quantized_model.pth'))
+
+    print(f"Quantisiertes Modell gespeichert unter: {save_path}")

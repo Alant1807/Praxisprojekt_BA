@@ -1,1 +1,31 @@
-{"training_id": "975e5847-7a7c-498b-a7bd-3a4785e4a776", "timestamp": "2025-07-29_09-01-01", "dataset_name": "MVTecAD_grid", "model_architecture": "mobilenetv4_conv_large", "used_memory_format": "torch.channels_last", "used_amp_mixed_precision": true, "config_used_path": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/STFPM_Config_mobilenetv4_conv_large.yaml", "key_parameters": {"num_epochs": 200, "lernrate": 0.001, "optimizer": "AdamW", "scheduler": "OneCycleLR"}, "training_summary": {"training_duration": 1188.8180224895477, "final_train_loss": 21.50942862033844, "best_train_loss": 21.01912397146225, "best_epoch": 184, "avg_epoch_duration": 3.8460427391529084}, "evaluation_performance": {"auroc_score": 0.9456975772765247, "best_auroc_score": 0.9482038429406852, "inference_time": 0.7542605220898986}, "Pfad_der_Gewichte": {"Pfad_finale_Gewichte": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/weights/mobilenetv4_conv_large_grid_975e5847-7a7c-498b-a7bd-3a4785e4a776_final_student.pth", "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/weights/mobilenetv4_conv_large_grid_975e5847-7a7c-498b-a7bd-3a4785e4a776_best_student.pth"}}
+{
+    "training_id": "975e5847-7a7c-498b-a7bd-3a4785e4a776",
+    "timestamp": "2025-07-29_09-01-01",
+    "dataset_name": "MVTecAD_grid",
+    "model_architecture": "mobilenetv4_conv_large",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/STFPM_Config_mobilenetv4_conv_large.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 1188.8180224895477,
+        "final_train_loss": 21.50942862033844,
+        "best_train_loss": 21.01912397146225,
+        "best_epoch": 184,
+        "avg_epoch_duration": 3.8460427391529084
+    },
+    "evaluation_performance": {
+        "auroc_score": 0.9456975772765247,
+        "best_auroc_score": 0.9482038429406852,
+        "inference_time": 0.7542605220898986
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/weights/mobilenetv4_conv_large_grid_975e5847-7a7c-498b-a7bd-3a4785e4a776_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_grid/mobilenetv4_conv_large/975e5847-7a7c-498b-a7bd-3a4785e4a776/weights/mobilenetv4_conv_large_grid_975e5847-7a7c-498b-a7bd-3a4785e4a776_best_student.pth"
+    }
+}

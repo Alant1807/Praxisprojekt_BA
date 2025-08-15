@@ -1,1 +1,31 @@
-{"training_id": "2830be19-bea8-41f8-a1e8-1a6ef49b8cbc", "timestamp": "2025-07-29_09-41-57", "dataset_name": "MVTecAD_grid", "model_architecture": "resnet18", "used_memory_format": "torch.channels_last", "used_amp_mixed_precision": true, "config_used_path": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/STFPM_Config_resnet18.yaml", "key_parameters": {"num_epochs": 200, "lernrate": 0.001, "optimizer": "AdamW", "scheduler": "OneCycleLR"}, "training_summary": {"training_duration": 884.9331855773926, "final_train_loss": 39.45895218849182, "best_train_loss": 39.07336890697479, "best_epoch": 195, "avg_epoch_duration": 2.7402798700332642}, "evaluation_performance": {"auroc_score": 0.8705096073517126, "best_auroc_score": 0.8863826232247286, "inference_time": 0.31101105725392697}, "Pfad_der_Gewichte": {"Pfad_finale_Gewichte": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/weights/resnet18_grid_2830be19-bea8-41f8-a1e8-1a6ef49b8cbc_final_student.pth", "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/weights/resnet18_grid_2830be19-bea8-41f8-a1e8-1a6ef49b8cbc_best_student.pth"}}
+{
+    "training_id": "2830be19-bea8-41f8-a1e8-1a6ef49b8cbc",
+    "timestamp": "2025-07-29_09-41-57",
+    "dataset_name": "MVTecAD_grid",
+    "model_architecture": "resnet18",
+    "used_memory_format": "torch.channels_last",
+    "used_amp_mixed_precision": true,
+    "config_used_path": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/STFPM_Config_resnet18.yaml",
+    "key_parameters": {
+        "num_epochs": 200,
+        "lernrate": 0.001,
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR"
+    },
+    "training_summary": {
+        "training_duration": 884.9331855773926,
+        "final_train_loss": 39.45895218849182,
+        "best_train_loss": 39.07336890697479,
+        "best_epoch": 195,
+        "avg_epoch_duration": 2.7402798700332642
+    },
+    "evaluation_performance": {
+        "auroc_score": 0.8705096073517126,
+        "best_auroc_score": 0.8863826232247286,
+        "inference_time": 0.31101105725392697
+    },
+    "Pfad_der_Gewichte": {
+        "Pfad_finale_Gewichte": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/weights/resnet18_grid_2830be19-bea8-41f8-a1e8-1a6ef49b8cbc_final_student.pth",
+        "Pfad_bester_Gewichte": "Training_Runs/MVTecAD_grid/resnet18/2830be19-bea8-41f8-a1e8-1a6ef49b8cbc/weights/resnet18_grid_2830be19-bea8-41f8-a1e8-1a6ef49b8cbc_best_student.pth"
+    }
+}
