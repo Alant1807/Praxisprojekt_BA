@@ -28,7 +28,8 @@ class Trainer:
 
     def __init__(self, model, train_loader, test_loader, config, train_folder_dir="Training_Runs"):
         self.config = config
-        self.device = torch.device(self.config['device']['type'])
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         if self.config.get('model_settings', {}).get('use_channels_last', False):
             self.actual_memory_format = torch.channels_last

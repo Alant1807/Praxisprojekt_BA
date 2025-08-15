@@ -27,7 +27,8 @@ class LRRangeTestFinder:
     def __init__(self, config_path: str):
         print("Initializing LR Range Test environment...")
         self.config = self._load_config(config_path)
-        self.device = torch.device(self.config['device']['type'])
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.model = self._init_model()
         self.train_loader = self._init_dataloader()
         # self.scaler = torch.amp.GradScaler(device=self.device.type)
