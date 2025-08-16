@@ -1,0 +1,12 @@
+{
+    "dataset_name": "MVTecAD_bottle",
+    "model_used": {
+        "training_id": "e54554d9-fb69-4a31-9d46-8edd82d7450a",
+        "model_architecture": "mobilenetv4_conv_small",
+        "student_model_weights_path": "Training_Runs/MVTecAD_bottle/mobilenetv4_conv_small/e54554d9-fb69-4a31-9d46-8edd82d7450a/weights/mobilenetv4_conv_small_bottle_e54554d9-fb69-4a31-9d46-8edd82d7450a_best_student.pth"
+    },
+    "performance_metrics": {
+        "auroc_score": 0.9436507936507936,
+        "inference_time": 0.48083020000194665
+    }
+}
