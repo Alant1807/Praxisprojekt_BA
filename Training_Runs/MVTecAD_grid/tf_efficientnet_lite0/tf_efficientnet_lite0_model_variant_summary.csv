@@ -1,2 +1,0 @@
-training_id,timestamp,dataset_name,model_architecture,used_memory_format,used_amp_mixed_precision,num_epochs,lernrate,optimizer,scheduler,training_duration,final_train_loss,best_train_loss,best_epoch,avg_epoch_duration,auroc_score,best_auroc_score,inference_time
-e5ae02b5-da90-4408-be06-52ecb1947fc3,2025-08-08_10-41-25,MVTecAD_grid,tf_efficientnet_lite0,torch.channels_last,True,200,0.001,"('AdamW',)","('OneCycleLR',)",1001.9548616409302,44.00810372829437,42.552348017692566,151,3.144340146780014,0.960735171261487,0.9741019214703426,0.48660563822835684
