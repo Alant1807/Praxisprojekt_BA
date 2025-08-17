@@ -36,7 +36,6 @@ def quantize_model(model_weights_path, config, summary_metric):
 
     prepared_model = prepare_fx(student_model, qconfig_mapping, example_inputs)
 
-    # 3. Kalibrierung
     print("Starte Kalibrierung...")
     train_set = MVTecDataset(
         img_size=config['dataset']['img_size'],
@@ -70,6 +69,7 @@ def quantize_model(model_weights_path, config, summary_metric):
 def save_quantized_model(model, config, summary_metric):
     save_path = os.path.join(
         'quantized_models',
+        f"{config['dataset']['name']}_{config['dataset']['class']}",
         f"{config['model']['architecture']}",
         f"{summary_metric.get('training_id', 'quantized_run')}"
     )

@@ -7,6 +7,6 @@
     },
     "performance_metrics": {
         "auroc_score": 1.0,
-        "inference_time": 1.4990144000039436
+        "inference_time": 1.3880991999976686
     }
 }
