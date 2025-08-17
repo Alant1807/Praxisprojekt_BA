@@ -3,3 +3,6 @@ Images/
 .dockerignore
 Inference_Runs/
 quantized_models/
+quantized_inference_results/
+Training_Runs/
+onnx_models/
