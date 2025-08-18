@@ -87,7 +87,7 @@ if session:
                     fig.colorbar(heatmap, ax=ax, fraction=0.046, pad=0.04)
                     ax.set_title("Anomalie-Heatmap")
                     ax.axis('off')
-                    plt.tight_layout()
+                    plt.tight_layout(rect=[0, 0, 1, 0.95])
                     st.pyplot(fig, use_container_width=True)
                     st.caption("Anomalie-Heatmap")
 
