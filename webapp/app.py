@@ -81,10 +81,13 @@ if session:
                              use_column_width=True)
 
                 with col2:
-                    fig, ax = plt.subplots()
+                    fig, ax = plt.subplots(figsize=(6, 6))
                     ax.imshow(original_image)
-                    ax.imshow(np.squeeze(anomaly_map), cmap='jet', alpha=0.5)
+                    heatmap = ax.imshow(np.squeeze(anomaly_map), cmap='jet', alpha=0.5)
+                    fig.colorbar(heatmap, ax=ax, fraction=0.046, pad=0.04)
+                    ax.set_title("Anomalie-Heatmap")
                     ax.axis('off')
+                    plt.tight_layout()
                     st.pyplot(fig, use_container_width=True)
                     st.caption("Anomalie-Heatmap")
 
