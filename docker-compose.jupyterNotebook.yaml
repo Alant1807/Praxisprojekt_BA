@@ -1,0 +1,10 @@
+services:
+  praxisprojekt-server:
+    build:
+      context: .
+      dockerfile: ./docker/docker_jupyterNotebook/Dockerfile
+    container_name: praxisprojekt_jupyter_server
+    env_file:
+      - ./Scripts/.env
+    ports:
+      - "8888:8888"

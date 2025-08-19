@@ -6,6 +6,7 @@ numpy
 matplotlib
 seaborn
 scikit-learn # Oft eine Kernabhängigkeit in ML-Projekten
+onnxruntime
 
 # ---- Deep Learning (PyTorch & Anomalib) ----
 torch

@@ -1,0 +1,8 @@
+services:
+  webapp:
+    build:
+      context: .  # Der Kontext bleibt das Hauptverzeichnis
+      dockerfile: ./docker/docker_webapp/Dockerfile  # Hier den neuen Pfad zum Dockerfile angeben
+    image: praxisprojekt_webapp:latest
+    ports:
+      - "8501:8501"
