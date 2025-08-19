@@ -3,12 +3,12 @@ import onnxruntime as ort
 import numpy as np
 from PIL import Image
 import io
-import matplotlib.pyplot as plt
+import cv2
 
-# --- Lade- und Inferenzlogik ---
+# --- SEITENKONFIGURATION ---
+st.set_page_config(layout="wide", page_title="Anomalie-Detektor")
 
-# Diese Funktion lädt das Modell aus dem Upload des Nutzers
-# @st.cache_resource sorgt dafür, dass das Modell im Speicher bleibt, solange die App läuft
+# --- LADE- UND INFERENZLOGIK ---
 
 
 @st.cache_resource
@@ -38,61 +38,97 @@ def run_inference(session, image_data):
     outputs = session.run(None, {input_name: image_data})
     return outputs[0], outputs[1]  # anomaly_map, anomaly_score
 
-# --- Streamlit UI ---
+# --- UI-KOMPONENTEN ---
 
 
-st.set_page_config(layout="wide", page_title="Anomalie-Detektor")
-st.title("Industrielle Anomalie-Erkennung")
-st.write("Dies ist ein Werkzeug zur visuellen Qualitätskontrolle. Bitte laden Sie zuerst ein ONNX-Modell und dann die zu prüfenden Bilder hoch.")
+def create_heatmap(original_image, anomaly_map):
+    """Erstellt und überlagert die Heatmap auf dem Originalbild."""
+    raw_map = np.squeeze(anomaly_map)
+    min_val, max_val = raw_map.min(), raw_map.max()
 
-# Schritt 1: Modell-Upload
-st.header("Schritt 1: ONNX-Modell hochladen")
-uploaded_model = st.file_uploader("ONNX-Modell auswählen", type=["onnx"])
+    normalized_map = (raw_map - min_val) / (max_val -
+                                            min_val) if max_val > min_val else np.zeros_like(raw_map)
+    heatmap_uint8 = (normalized_map * 255).astype(np.uint8)
+    heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
 
-session = None
-if uploaded_model is not None:
-    session = load_model_from_upload(uploaded_model)
-    if session:
-        st.success(
-            f"Modell '{uploaded_model.name}' erfolgreich geladen und einsatzbereit.")
+    original_image_cv = cv2.cvtColor(
+        np.array(original_image), cv2.COLOR_RGB2BGR)
+    heatmap_resized = cv2.resize(
+        heatmap_colored, (original_image_cv.shape[1], original_image_cv.shape[0]))
 
-st.divider()
+    superimposed_img = cv2.addWeighted(
+        heatmap_resized, 0.5, original_image_cv, 0.5, 0)
+    return cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB)
 
-# Schritt 2: Bild-Upload (wird erst angezeigt, wenn ein Modell geladen ist)
-if session:
-    st.header("Schritt 2: Bilder zur Analyse hochladen")
+# --- HAUPT-UI ---
+
+
+st.title("🕵️ Industrielle Anomalie-Erkennung")
+st.write("Ein Werkzeug zur visuellen Qualitätskontrolle. Konfigurieren Sie die Analyse in der Seitenleiste.")
+
+# --- SEITENLEISTE FÜR EINSTELLUNGEN ---
+with st.sidebar:
+    st.header("⚙️ Einstellungen")
+
+    # Schritt 1: Modell-Upload
+    st.subheader("1. ONNX-Modell hochladen")
+    uploaded_model = st.file_uploader(
+        "ONNX-Modell auswählen", type=["onnx"], label_visibility="collapsed")
+
+    session = None
+    if uploaded_model:
+        session = load_model_from_upload(uploaded_model)
+        if session:
+            st.success(f"Modell '{uploaded_model.name}' geladen.")
+
+    # Schritt 2: Bild-Upload (deaktiviert, bis Modell geladen ist)
+    st.subheader("2. Bilder hochladen")
     uploaded_files = st.file_uploader(
-        "Bilder auswählen",
+        "Bilder auswählen (Strg+A für alle)",
         type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        disabled=not session,
+        label_visibility="collapsed"
     )
 
-    if uploaded_files:
-        if st.button("Analyse starten", use_container_width=True):
-            for uploaded_file in uploaded_files:
-                original_image = Image.open(uploaded_file).convert("RGB")
+    # Analyse-Button
+    st.divider()
+    analyze_button = st.button(
+        "Analyse starten", use_container_width=True, disabled=not uploaded_files)
 
-                input_data = preprocess_image(original_image)
-                anomaly_map, anomaly_score = run_inference(session, input_data)
+# --- ERGEBNISANZEIGE ---
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.image(original_image, caption="Originalbild",
-                             use_column_width=True)
+if not session:
+    st.info("Bitte laden Sie in der Seitenleiste ein ONNX-Modell hoch, um zu beginnen.")
+elif not uploaded_files:
+    st.info("Bitte laden Sie Bilder zur Analyse hoch.")
 
-                with col2:
-                    fig, ax = plt.subplots(figsize=(6, 6))
-                    ax.imshow(original_image)
-                    heatmap = ax.imshow(np.squeeze(anomaly_map), cmap='jet', alpha=0.5)
-                    fig.colorbar(heatmap, ax=ax, fraction=0.046, pad=0.04)
-                    ax.set_title("Anomalie-Heatmap")
-                    ax.axis('off')
-                    plt.tight_layout(rect=[0, 0, 1, 0.95])
-                    st.pyplot(fig, use_container_width=True)
-                    st.caption("Anomalie-Heatmap")
+if analyze_button and uploaded_files and session:
+    results = []
+    with st.spinner('Analysiere Bilder...'):
+        for uploaded_file in uploaded_files:
+            original_image = Image.open(uploaded_file).convert("RGB")
+            input_data = preprocess_image(original_image)
+            anomaly_map, anomaly_score = run_inference(session, input_data)
 
-                score_value = anomaly_score[0]
-                st.info(f"Anomalie-Score: {score_value:.4f}")
-                st.divider()
-else:
-    st.info("Bitte laden Sie ein ONNX-Modell hoch, um fortzufahren.")
+            heatmap_image = create_heatmap(original_image, anomaly_map)
+
+            results.append({
+                "name": uploaded_file.name,
+                "image": original_image,
+                "heatmap": heatmap_image,
+                "score": anomaly_score[0],
+            })
+
+    # --- EINZELERGEBNISSE ---
+    st.header("📄 Analyseergebnisse")
+    st.metric("Bilder insgesamt analysiert", f"{len(results)}")
+
+    for res in results:
+        with st.expander(f"{res['name']} (Score: {res['score']:.4f})", expanded=False):
+            col1, col2 = st.columns(2)
+            col1.image(res["image"], caption="Originalbild",
+                       use_container_width=True)
+            col2.image(res["heatmap"], caption="Anomalie-Heatmap",
+                       use_container_width=True)
+            st.info(f"**Anomalie-Score:** {res['score']:.4f}")

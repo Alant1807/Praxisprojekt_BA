@@ -1,12 +1,20 @@
-FROM python:3.11-slim
+# Verwende ein offizielles Python-Image als Basis
+FROM python:3.10-slim
 
+# Setze das Arbeitsverzeichnis im Container
 WORKDIR /app
 
+# Kopiere die Abhängigkeitsdateien
 COPY requirements.txt .
+
+# Installiere die Abhängigkeiten
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Kopiere den Rest des Anwendungscodes
 COPY . .
 
-EXPOSE 8888
+# Gib den Port an, auf dem die App laufen wird
+EXPOSE 8501
 
-CMD ["jupyter", "notebook", "main.ipynb", "--ip=0.0.0.0", "--port=8888", "--allow-root", "--no-browser"]
+# Befehl zum Starten der App
+CMD ["streamlit", "run", "webapp/app.py"]
