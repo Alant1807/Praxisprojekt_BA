@@ -55,7 +55,7 @@ class ONNX_Exporter:
 
         os.makedirs(output_path, exist_ok=True)
         save_path = os.path.join(
-            output_path, f'STFPM_{self.config["model"]["architecture"]}.onnx')
+            output_path, f'STFPM_{self.config["dataset"]["class"]}_{self.config["model"]["architecture"]}.onnx')
 
         onnx_program = torch.onnx.export(
             self.wrapped_model,
