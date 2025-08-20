@@ -10,7 +10,6 @@ st.set_page_config(layout="wide", page_title="Anomalie-Detektor")
 
 # --- LADE- UND INFERENZLOGIK ---
 
-
 @st.cache_resource
 def load_model_from_upload(uploaded_file):
     """Lädt ein ONNX-Modell aus einer hochgeladenen Datei."""
@@ -22,7 +21,6 @@ def load_model_from_upload(uploaded_file):
         st.error(f"Fehler beim Laden des ONNX-Modells: {e}")
         return None
 
-
 def preprocess_image(image):
     """Bereitet ein einzelnes Bild für die Inferenz vor."""
     img_size = 256
@@ -31,7 +29,6 @@ def preprocess_image(image):
     input_data = np.expand_dims(input_data, axis=0)
     return input_data
 
-
 def run_inference(session, image_data):
     """Führt die Inferenz aus."""
     input_name = session.get_inputs()[0].name
@@ -39,7 +36,6 @@ def run_inference(session, image_data):
     return outputs[0], outputs[1]  # anomaly_map, anomaly_score
 
 # --- UI-KOMPONENTEN ---
-
 
 def create_heatmap(original_image, anomaly_map):
     """Erstellt und überlagert die Heatmap auf dem Originalbild."""
@@ -61,7 +57,6 @@ def create_heatmap(original_image, anomaly_map):
     return cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB)
 
 # --- HAUPT-UI ---
-
 
 st.title("🕵️ Industrielle Anomalie-Erkennung")
 st.write("Ein Werkzeug zur visuellen Qualitätskontrolle. Konfigurieren Sie die Analyse in der Seitenleiste.")

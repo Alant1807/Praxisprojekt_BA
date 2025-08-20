@@ -68,8 +68,7 @@ class Trainer:
 
         self.training_id = str(uuid.uuid4())
 
-        self.use_amp = self.config.get('model_settings', {}).get(
-            'use_amp_mixed_precision', False)
+        self.use_amp = False
         self.scaler = torch.amp.GradScaler(enabled=self.use_amp)
 
         self.evaluate = Inference(
