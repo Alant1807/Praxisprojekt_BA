@@ -2,7 +2,7 @@ import streamlit as st
 import onnxruntime as ort
 import numpy as np
 from PIL import Image
-import io
+import time  # Hinzugefügt
 import cv2
 
 # --- SEITENKONFIGURATION ---
@@ -29,11 +29,18 @@ def preprocess_image(image):
     input_data = np.expand_dims(input_data, axis=0)
     return input_data
 
+
 def run_inference(session, image_data):
-    """Führt die Inferenz aus."""
+    """Führt die Inferenz aus und misst die Zeit."""
     input_name = session.get_inputs()[0].name
+
+    start_time = time.perf_counter()
     outputs = session.run(None, {input_name: image_data})
-    return outputs[0], outputs[1]  # anomaly_map, anomaly_score
+    end_time = time.perf_counter()
+
+    inference_time = end_time - start_time
+    # Gibt jetzt auch die Inferenzzeit zurück
+    return outputs[0], outputs[1], inference_time
 
 # --- UI-KOMPONENTEN ---
 
@@ -100,11 +107,16 @@ elif not uploaded_files:
 
 if analyze_button and uploaded_files and session:
     results = []
+    total_inference_time = 0.0  # Hinzugefügt
     with st.spinner('Analysiere Bilder...'):
         for uploaded_file in uploaded_files:
             original_image = Image.open(uploaded_file).convert("RGB")
             input_data = preprocess_image(original_image)
-            anomaly_map, anomaly_score = run_inference(session, input_data)
+
+            # Die Inferenzzeit wird hier ebenfalls empfangen
+            anomaly_map, anomaly_score, inference_time = run_inference(
+                session, input_data)
+            total_inference_time += inference_time  # Hinzugefügt
 
             heatmap_image = create_heatmap(original_image, anomaly_map)
 
@@ -113,17 +125,29 @@ if analyze_button and uploaded_files and session:
                 "image": original_image,
                 "heatmap": heatmap_image,
                 "score": anomaly_score[0],
+                "time": inference_time  # Hinzugefügt
             })
 
-    # --- EINZELERGEBNISSE ---
+    # --- ZUSAMMENFASSUNG ---
     st.header("📄 Analyseergebnisse")
-    st.metric("Bilder insgesamt analysiert", f"{len(results)}")
 
+    # Hinzugefügte Metriken für die Zeit
+    avg_time = total_inference_time / len(results) if results else 0
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Bilder insgesamt", f"{len(results)}")
+    col2.metric("Gesamte Inferenzzeit", f"{total_inference_time:.2f} s")
+    col3.metric("Ø Zeit pro Bild", f"{avg_time:.4f} s")
+
+    # --- EINZELERGEBNISSE ---
     for res in results:
-        with st.expander(f"{res['name']} (Score: {res['score']:.4f})", expanded=False):
+        # Titel des Expanders zeigt jetzt auch die Zeit an
+        expander_title = f"{res['name']} (Score: {res['score']:.4f} | Zeit: {res['time']:.4f}s)"
+        with st.expander(expander_title, expanded=False):
             col1, col2 = st.columns(2)
             col1.image(res["image"], caption="Originalbild",
                        use_container_width=True)
             col2.image(res["heatmap"], caption="Anomalie-Heatmap",
                        use_container_width=True)
-            st.info(f"**Anomalie-Score:** {res['score']:.4f}")
+            # Info-Box zeigt jetzt auch die Zeit an
+            st.info(
+                f"**Anomalie-Score:** {res['score']:.4f}\n\n**Inferenzzeit:** {res['time']:.4f} Sekunden")

@@ -35,7 +35,7 @@ def quantize_model(model_weights_path, config, summary_metric):
     example_inputs = (torch.randn(1, 3, 256, 256),)
 
     prepared_model = prepare_fx(student_model, qconfig_mapping, example_inputs)
-
+    
     print("Starte Kalibrierung...")
     train_set = MVTecDataset(
         img_size=config['dataset']['img_size'],
