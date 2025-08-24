@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from Scripts.model import *
 from Scripts.trainer import *
 from Scripts.results_manager import *
-from Scripts.asymmetric_model import *
+#from Scripts.asymmetric_model import *
 
 
 def load_config(config_path):
@@ -94,18 +94,11 @@ def training_selected_class(config_path, selected_class):
                             batch_size=config['dataloader']['batch_size'],
                             shuffle=False
                         )
-                        if config.get('model', {}).get('asymmetric', False):
-                            print("Verwende asymmetrisches Modell.")
-                            model = AsymmetricSTFPM(
-                                teacher_architecture=config['model']['teacher_architecture'],
-                                student_architecture=config['model']['student_architecture'],
-                                layers=config['model']['layers']
-                            )
-                        else:
-                            model = STFPM(
-                                architecture=config['model']['architecture'],
-                                layers=config['model']['layers']
-                            )
+                        
+                        model = STFPM(
+                            architecture=config['model']['architecture'],
+                            layers=config['model']['layers']
+                        )
 
                         trainer = Trainer(
                             model=model,
