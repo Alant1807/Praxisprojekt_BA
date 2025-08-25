@@ -2,7 +2,7 @@ import os
 import yaml
 from Scripts.dataset import *
 from torch.utils.data import DataLoader
-from Scripts.model import *
+from Scripts.model2 import *
 from Scripts.trainer import *
 from Scripts.results_manager import *
 #from Scripts.asymmetric_model import *

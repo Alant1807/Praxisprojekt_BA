@@ -135,7 +135,7 @@ class Trainer:
                 self.scheduler.step()
 
             train_loss += loss.item()
-        return train_loss
+        return train_loss/ len(self.train_loader)
 
     def train(self):
         """

@@ -1,16 +1,34 @@
+dataset:
+  name: MVTecAD
+  base_path: Images
+  img_size: 256
+  class: carpet
 dataloader:
   batch_size: 64
-dataset:
-  base_path: Images
-  class: carpet
-  img_size: 256
-  name: MVTecAD
+epochs: 200
+optimizer:
+  active: AdamW
+  configs:
+    SGD:
+      lr: 0.4
+      momentum: 0.9
+      weight_decay: 0.0001
+    AdamW:
+      lr: 0.001
+      weight_decay: 0.01
 device:
   type: cpu
-epochs: 200
 loss:
   params:
     epsilon: 1.0e-08
+scheduler:
+  type: OneCycleLR
+  params:
+    max_lr: 0.01
+    epochs: 200
+model_settings:
+  use_channels_last: true
+  use_amp_mixed_precision: true
 model:
   architecture: resnet18
   layers:
@@ -18,21 +36,3 @@ model:
   - layer2
   - layer3
   - layer4
-model_settings:
-  use_amp_mixed_precision: false
-  use_channels_last: true
-optimizer:
-  active: AdamW
-  configs:
-    AdamW:
-      lr: 0.001
-      weight_decay: 0.01
-    SGD:
-      lr: 0.4
-      momentum: 0.9
-      weight_decay: 0.0001
-scheduler:
-  params:
-    epochs: 200
-    max_lr: 0.01
-  type: OneCycleLR

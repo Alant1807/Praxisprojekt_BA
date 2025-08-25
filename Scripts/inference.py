@@ -25,9 +25,9 @@ class Inference:
         inferenz (bool): Gibt an, ob Inferenz durchgeführt werden soll. Standard ist True.
     """
 
-    def __init__(self, model, test_loader, config, device, output_dir="Inference_Runs", path_to_student_weight=None, trainings_id=None, inferenz=True):
+    def __init__(self, model, test_loader, config, output_dir="Inference_Runs", path_to_student_weight=None, trainings_id=None, inferenz=True):
         self.config = config
-        self.device = device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if self.config.get('model_settings', {}).get('use_channels_last', False):
             self.actual_memory_format = torch.channels_last
