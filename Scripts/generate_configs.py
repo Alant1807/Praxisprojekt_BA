@@ -157,7 +157,7 @@ def generate_ymlConfigs():
             "type": "OneCycleLR",
             "params": {"max_lr": 0.01, "epochs": 200},
         },
-        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": True},
+        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": False},
     }
 
     output_dir = "Configs"

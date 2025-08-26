@@ -28,7 +28,7 @@ scheduler:
     epochs: 200
 model_settings:
   use_channels_last: true
-  use_amp_mixed_precision: true
+  use_amp_mixed_precision: false
 model:
   architecture: resnet18
   layers:

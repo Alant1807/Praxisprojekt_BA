@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from typing import List, Dict
+import torchvision.models.quantization
 from Scripts.loss import *
 
 
@@ -13,7 +14,10 @@ class FeatureExtractor(nn.Module):
             raise ValueError(
                 f"Backbone '{backbone}' not found in torchvision.models")
 
-        self.model = models.__dict__[backbone](pretrained=pretrained)
+        if pretrained:
+            self.model = models.__dict__[backbone](weights="DEFAULT")
+        else:
+            self.model = models.__dict__[backbone](weights=None)
         self.layers = layers
 
         self.features: Dict[str, torch.Tensor] = {}
