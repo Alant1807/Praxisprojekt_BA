@@ -1,5 +1,3 @@
-from typing import Dict, Any
-from Scripts.model2 import STFPM
 from torch.ao.quantization import get_default_qconfig_mapping, quantize_fx
 from pathlib import Path
 import torch
@@ -7,11 +5,6 @@ import copy
 import os
 import yaml
 import json
-from torch.ao.quantization import (
-    get_default_qconfig_mapping,
-    get_default_qat_qconfig_mapping,
-    QConfigMapping,
-)
 import torch.ao.quantization.quantize_fx as quantize_fx
 from torch.utils.data import DataLoader
 from Scripts.model2 import *
