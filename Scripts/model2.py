@@ -13,7 +13,7 @@ class FeatureExtractor(nn.Module):
         if backbone not in models.__dict__:
             raise ValueError(
                 f"Backbone '{backbone}' not found in torchvision.models")
-        
+
         weights_arg = "DEFAULT" if pretrained else None
         quantize_arg = quantize and pretrained
 
