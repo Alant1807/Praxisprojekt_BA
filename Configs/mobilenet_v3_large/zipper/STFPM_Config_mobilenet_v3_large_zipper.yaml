@@ -2,7 +2,7 @@ dataset:
   name: MVTecAD
   base_path: Images
   img_size: 256
-  class: hazelnut
+  class: zipper
 dataloader:
   batch_size: 64
 epochs: 200
@@ -30,8 +30,8 @@ model_settings:
   use_channels_last: true
   use_amp_mixed_precision: false
 model:
-  architecture: mobilenet_v3_small
+  architecture: mobilenet_v3_large
   layers:
-  - features.1
   - features.3
-  - features.8
+  - features.6
+  - features.12

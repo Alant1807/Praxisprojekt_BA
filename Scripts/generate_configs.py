@@ -126,10 +126,10 @@ def generate_ymlConfigs():
                 "layers": ["layer1", "layer2", "layer3", "layer4"],
             },
         },
-        "mobilenet_v3_small": {
+        "mobilenet_v3_large": {
             "model": {
-                "architecture": "mobilenet_v3_small",
-                "layers": ['features.1', 'features.3', 'features.8']
+                "architecture": "mobilenet_v3_large",
+                "layers": ['features.3', 'features.6', 'features.12']
             }
         },
         "shufflenet_v2_x1_0": {

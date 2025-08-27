@@ -7,17 +7,21 @@ from Scripts.loss import *
 
 
 class FeatureExtractor(nn.Module):
-    def __init__(self, backbone, pretrained, layers, requires_grad=False):
+    def __init__(self, backbone, pretrained, layers, quantize, requires_grad=False):
         super().__init__()
 
         if backbone not in models.__dict__:
             raise ValueError(
                 f"Backbone '{backbone}' not found in torchvision.models")
+        
+        weights_arg = "DEFAULT" if pretrained else None
+        quantize_arg = quantize and pretrained
 
-        if pretrained:
-            self.model = models.__dict__[backbone](weights="DEFAULT")
-        else:
-            self.model = models.__dict__[backbone](weights=None)
+        self.model = torchvision.models.quantization.__dict__[backbone](
+            weights=weights_arg,
+            quantize=quantize_arg
+        )
+
         self.layers = layers
 
         self.features: Dict[str, torch.Tensor] = {}
@@ -59,15 +63,15 @@ class STFPM(nn.Module):
         layers (list): Eine Liste von Schichten, die extrahiert werden sollen, z.B. [2, 3, 4].
     """
 
-    def __init__(self, architecture, layers):
+    def __init__(self, architecture, layers, quantize=False):
         super().__init__()
 
         self.teacher_model = FeatureExtractor(
-            backbone=architecture, pretrained=True, layers=layers
+            backbone=architecture, pretrained=True, layers=layers, quantize=quantize
         ).eval()
 
         self.student_model = FeatureExtractor(
-            backbone=architecture, pretrained=False, layers=layers, requires_grad=True
+            backbone=architecture, pretrained=False, layers=layers, quantize=quantize, requires_grad=True
         ).train()
 
         self.stem_model = self.extract_stem_layers()
