@@ -6,54 +6,6 @@ import torchvision.models.quantization
 from Scripts.loss import *
 
 
-class FeatureExtractor(nn.Module):
-    def __init__(self, backbone, pretrained, layers, quantize, requires_grad=False):
-        super().__init__()
-
-        if backbone not in models.__dict__:
-            raise ValueError(
-                f"Backbone '{backbone}' not found in torchvision.models")
-
-        weights_arg = "DEFAULT" if pretrained else None
-        quantize_arg = quantize and pretrained
-
-        self.model = torchvision.models.quantization.__dict__[backbone](
-            weights=weights_arg,
-            quantize=quantize_arg
-        )
-
-        self.layers = layers
-
-        self.features: Dict[str, torch.Tensor] = {}
-
-        for param in self.model.parameters():
-            param.requires_grad = requires_grad
-
-        named_modules = dict([*self.model.named_modules()])
-        for name in self.layers:
-            if name not in named_modules:
-                raise ValueError(f"Layer '{name}' not found in the model. "
-                                 f"Available layers: {list(named_modules.keys())}")
-            layer = named_modules[name]
-            layer.register_forward_hook(self._get_hook(name))
-
-    def _get_hook(self, name: str):
-        def hook(module, input, output):
-            self.features[name] = output
-        return hook
-
-    def forward(self, x):
-        self.features.clear()
-
-        if not next(self.model.parameters()).requires_grad:
-            with torch.no_grad():
-                _ = self.model(x)
-        else:
-            _ = self.model(x)
-
-        return self.features
-
-
 class STFPM(nn.Module):
     """
     Das STFPM-Modell (Student-Teacher Feature Pyramid Matching) verwendet ein Lehrer- und ein Schüler-Modell
@@ -65,6 +17,8 @@ class STFPM(nn.Module):
 
     def __init__(self, architecture, layers, quantize=False):
         super().__init__()
+
+        self.quantize = quantize
 
         self.teacher_model = FeatureExtractor(
             backbone=architecture, pretrained=True, layers=layers, quantize=quantize
@@ -82,31 +36,34 @@ class STFPM(nn.Module):
         self.stem_model.eval()
 
     def extract_stem_layers(self):
+        source_backbone = self.student_model.model if self.quantize else self.teacher_model.model
         teacher_backbone = self.teacher_model.model
         student_backbone = self.student_model.model
 
         stem_layers = []
 
-        if 'resnet' in self.teacher_model.model.__class__.__name__.lower() or 'shufflenet' in self.teacher_model.model.__class__.__name__.lower():
+        model_name = source_backbone.__class__.__name__.lower()
+
+        if 'resnet' in model_name or 'shufflenet' in model_name:
             stem_layer_names = ['conv1', 'bn1', 'relu', 'maxpool']
             for name in stem_layer_names:
-                if hasattr(teacher_backbone, name):
-                    stem_layers.append(getattr(teacher_backbone, name))
+                if hasattr(source_backbone, name):
+                    stem_layers.append(getattr(source_backbone, name))
                     setattr(teacher_backbone, name, nn.Identity())
                     setattr(student_backbone, name, nn.Identity())
-        elif 'mobilenet' in self.teacher_model.model.__class__.__name__.lower():
-            if hasattr(teacher_backbone, 'features') and isinstance(teacher_backbone.features, nn.Sequential):
-                stem_module = teacher_backbone.features[0]
+        elif 'mobilenet' in model_name:
+            if hasattr(source_backbone, 'features') and isinstance(source_backbone.features, nn.Sequential):
+                stem_module = source_backbone.features[0]
                 stem_layers.append(stem_module)
                 teacher_backbone.features[0] = nn.Identity()
                 student_backbone.features[0] = nn.Identity()
         else:
             raise ValueError(
-                f"Architecture '{self.teacher_model.model.__class__.__name__}' not supported for stem extraction.")
+                f"Architecture '{source_backbone.__class__.__name__}' not supported for stem extraction.")
 
         if not stem_layers:
             raise ValueError(
-                f"No stem layers were extracted for {self.teacher_model.model.__class__.__name__}. Please check the architecture and layer names.")
+                f"No stem layers were extracted for {source_backbone.__class__.__name__}. Please check the architecture and layer names.")
 
         return nn.Sequential(*stem_layers)
 
@@ -188,3 +145,51 @@ class STFPM(nn.Module):
         student_feature_maps = list(student_feature_maps.values())
 
         return teacher_feature_maps, student_feature_maps
+
+
+class FeatureExtractor(nn.Module):
+    def __init__(self, backbone, pretrained, layers, quantize, requires_grad=False):
+        super().__init__()
+
+        if backbone not in models.__dict__:
+            raise ValueError(
+                f"Backbone '{backbone}' not found in torchvision.models")
+
+        weights_arg = "DEFAULT" if pretrained else None
+        quantize_arg = quantize and pretrained
+
+        self.model = torchvision.models.quantization.__dict__[backbone](
+            weights=weights_arg,
+            quantize=quantize_arg
+        )
+
+        self.layers = layers
+
+        self.features: Dict[str, torch.Tensor] = {}
+
+        for param in self.model.parameters():
+            param.requires_grad = requires_grad
+
+        named_modules = dict([*self.model.named_modules()])
+        for name in self.layers:
+            if name not in named_modules:
+                raise ValueError(f"Layer '{name}' not found in the model. "
+                                 f"Available layers: {list(named_modules.keys())}")
+            layer = named_modules[name]
+            layer.register_forward_hook(self._get_hook(name))
+
+    def _get_hook(self, name: str):
+        def hook(module, input, output):
+            self.features[name] = output
+        return hook
+
+    def forward(self, x):
+        self.features.clear()
+
+        if not next(self.model.parameters()).requires_grad:
+            with torch.no_grad():
+                _ = self.model(x)
+        else:
+            _ = self.model(x)
+
+        return self.features
