@@ -1,0 +1,38 @@
+dataset:
+  name: MVTecAD
+  base_path: Images
+  img_size: 256
+  class: metal_nut
+dataloader:
+  batch_size: 64
+epochs: 200
+optimizer:
+  active: AdamW
+  configs:
+    SGD:
+      lr: 0.4
+      momentum: 0.9
+      weight_decay: 0.0001
+    AdamW:
+      lr: 0.001
+      weight_decay: 0.01
+device:
+  type: cpu
+loss:
+  params:
+    epsilon: 1.0e-08
+scheduler:
+  type: OneCycleLR
+  params:
+    max_lr: 0.01
+    epochs: 200
+model_settings:
+  use_channels_last: true
+  use_amp_mixed_precision: false
+model:
+  architecture: mobilenetv4_conv_small
+  layers:
+  - blocks.0
+  - blocks.1
+  - blocks.2
+  - blocks.4

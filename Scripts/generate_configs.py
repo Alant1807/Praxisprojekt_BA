@@ -91,10 +91,10 @@ def generate_configs():
             "type": "OneCycleLR",
             "params": {"max_lr": 0.01, "epochs": 200},
         },
-        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": True},
+        "model_settings": {"use_channels_last": True, "use_amp_mixed_precision": False},
     }
 
-    output_dir = "Configs"
+    output_dir = "Configs_timm"
 
     for model_name, model_config in base_configs.items():
         for cls in mvtec_classes:
@@ -177,4 +177,4 @@ def generate_ymlConfigs():
 
 
 if __name__ == "__main__":
-    generate_ymlConfigs()
+    generate_configs()
