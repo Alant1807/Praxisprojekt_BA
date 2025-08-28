@@ -9,6 +9,8 @@ from Scripts.loss import *
 from Scripts.results_manager import *
 from Scripts.plots import *
 
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 class Inference:
     """
@@ -27,7 +29,8 @@ class Inference:
 
     def __init__(self, model, test_loader, config, output_dir="Inference_Runs", path_to_student_weight=None, trainings_id=None, inferenz=True):
         self.config = config
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         if self.config.get('model_settings', {}).get('use_channels_last', False):
             self.actual_memory_format = torch.channels_last
@@ -138,6 +141,55 @@ class Inference:
 
                 self.save_anomaly_maps(
                     anomaly_map, names, self.anomaly_maps_dir_for_run)
+
+        return roc_auc_score(get_labels, get_anomaly_scores), total_inference_time
+
+    def evaluate_quantized_loaded_model(self):
+        """
+        Führt die Inferenz auf dem Testdatensatz durch, berechnet den AUC-ROC-Score
+        und analysiert die Performance mit dem PyTorch Profiler.
+        """
+        self.model.eval()
+
+        get_labels = list()
+        get_anomaly_scores = list()
+        total_inference_time = 0.0
+
+        # --- Start des Profiler-Kontexts ---
+        # Wir wrappen den gesamten Inferenz-Loop mit dem Profiler.
+        # - `activities`: Wir wollen die CPU-Zeit messen.
+        # - `record_shapes`: Hilfreich für die Analyse von Tensor-Dimensionen.
+        # - `with_stack`: Ermöglicht die Nachverfolgung bis zum Python-Quellcode.
+        with profile(activities=[ProfilerActivity.CPU], record_shapes=True, with_stack=True) as prof:
+            with torch.no_grad():
+                for images, names, _, labels in tqdm(self.test_loader, desc="Evaluating", leave=False):
+                    img_t = images.to(
+                        self.device, memory_format=self.actual_memory_format)
+
+                    start_time = time.perf_counter()
+
+                    # --- Spezifischer Record-Block für die Modellausführung ---
+                    # Dies erzeugt einen eigenen Eintrag im Profiling-Bericht,
+                    # sodass wir genau die Zeit für den Model-Forward-Pass sehen.
+                    with record_function("anomaly_map_inference"):
+                        anomaly_map = self.model.anomaly_map(img_t)
+
+                    end_time = time.perf_counter()
+                    total_inference_time += (end_time - start_time)
+
+                    get_labels.extend(labels.cpu().numpy().tolist())
+                    get_anomaly_scores.extend(torch.amax(
+                        anomaly_map, dim=(1, 2)).detach().cpu().numpy())
+
+                    self.save_anomaly_maps(
+                        anomaly_map, names, self.anomaly_maps_dir_for_run)
+
+        # --- Ausgabe der Profiler-Ergebnisse ---
+        print("\n--- PyTorch Profiler-Analyse ---")
+        # Wir geben eine nach CPU-Zeit sortierte Tabelle aus.
+        # `row_limit=15` beschränkt die Ausgabe auf die 15 zeitintensivsten Operationen.
+        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=15))
+        # --- Ende der Profiler-Ausgabe ---
 
         return roc_auc_score(get_labels, get_anomaly_scores), total_inference_time
 

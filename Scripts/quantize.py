@@ -23,7 +23,7 @@ from Scripts.dataset import MVTecDataset
 # --- Konstanten ---
 # Definiert die Anzahl der Daten-Batches für die Kalibrierung.
 # Eine höhere Anzahl kann die Genauigkeit verbessern, erhöht aber die Dauer des Quantisierungsprozesses.
-CALIBRATION_BATCHES = 20
+CALIBRATION_BATCHES = 200
 # Legt das Zielgerät fest. Quantisierung wird typischerweise für die CPU-Inferenz optimiert.
 DEVICE = torch.device('cpu')
 
