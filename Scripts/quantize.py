@@ -1,178 +1,163 @@
-# Importieren der notwendigen Bibliotheken und Module
-from torch.ao.quantization import get_default_qconfig_mapping, quantize_fx
+"""
+Dieses Skript führt eine Post-Training Static Quantization auf einem STFPM-Modell durch.
+Der Prozess umfasst das Laden eines vortrainierten FP32-Modells, die Kalibrierung mit
+einem repräsentativen Datensatz und die Konvertierung in ein INT8-Modell zur
+Optimierung der Inferenzgeschwindigkeit auf CPUs.
+"""
+
+# --- Importe ---
+# Standardbibliotheken
 from pathlib import Path
-import torch
-import yaml
 import json
+
+# Externe Bibliotheken
+import torch
 from torch.utils.data import DataLoader
-# Importieren der benutzerdefinierten Klassen aus den Skript-Dateien
-from Scripts.model2 import *
+from torch.ao.quantization import get_default_qconfig_mapping, quantize_fx
+import yaml
+
+# Lokale Module (benutzerdefinierte Klassen)
+from Scripts.model2 import STFPM
 from Scripts.dataset import MVTecDataset
 
-# --- KONSTANTEN ---
-# Definiert die Anzahl der Daten-Batches, die für die Kalibrierung verwendet werden.
+# --- Konstanten ---
+# Definiert die Anzahl der Daten-Batches für die Kalibrierung.
+# Eine höhere Anzahl kann die Genauigkeit verbessern, erhöht aber die Dauer des Quantisierungsprozesses.
 CALIBRATION_BATCHES = 20
-# Legt das Gerät fest, auf dem die Berechnungen ausgeführt werden (hier CPU, da Quantisierung oft für CPU-Inferenz optimiert ist).
+# Legt das Zielgerät fest. Quantisierung wird typischerweise für die CPU-Inferenz optimiert.
 DEVICE = torch.device('cpu')
-# -----------------
 
 
-def quantize_model(model_weights_path, config, summary_metric):
+def quantize_model(model_weights_path: str, config: dict, summary_metric: dict):
     """
-    Hauptfunktion zur Quantisierung des Studenten-Modells.
-    Führt eine "Post-Training Static Quantization" durch.
+    Orchestriert den gesamten Quantisierungsprozess für das Studenten-Modell.
 
     Args:
-        model_weights_path (str): Pfad zu den trainierten Gewichten des Studenten-Modells.
-        config (dict): Konfigurationsparameter für das Modell und die Quantisierung.
-        summary_metric (str): Metrik zur Bewertung der Quantisierung.
-
-    Returns:
-        quantized_model (torch.nn.Module): Das quantisierte Studenten-Modell.
+        model_weights_path (str): Pfad zu den gespeicherten Gewichten des FP32-Studenten-Modells.
+        config (dict): Konfigurationswörterbuch, das Modell- und Datensatzparameter enthält.
+        summary_metric (dict): Metriken aus dem Training, die zusammen mit dem Modell gespeichert werden.
     """
-    device = torch.device('cpu')
-    print("Lade Modelle für die Quantisierung...")
-
-    # Schritt 1: Lade ein temporäres FP32 (Gleitkomma) STFPM-Modell.
-    # Dies ist notwendig, um an den originalen, nicht-quantisierten "stem_model" zu gelangen.
-    # Der Stem bleibt während der Inferenz in FP32, um die Eingabebilder zu verarbeiten.
-    with torch.no_grad():
-        temp_float_model = STFPM(
-            architecture=config['model']['architecture'],
-            layers=config['model']['layers'],
-            quantize=False,  # Wichtig: Explizit die Nicht-quantisierte Version laden
-        ).to(device).eval()
-        float_stem_model = temp_float_model.stem_model
-
-    # Schritt 2: Erstelle die Architektur des Studenten-Modells, das quantisiert werden soll.
-    # Es wird die `FeatureExtractor`-Klasse verwendet, die das eigentliche Backbone-Netzwerk enthält.
-    student_to_quantize = FeatureExtractor(
-        backbone=config['model']['architecture'],
-        pretrained=False,  # Die Gewichte werden separat geladen
+    print("Lade FP32-Modelle für die Quantisierung...")
+    # Initialisiere das gesamte STFPM-Modell, um Zugriff auf den `stem_model` (in FP32)
+    # und den `student_model` (zu quantisieren) zu erhalten.
+    model_to_quantize = STFPM(
+        architecture=config['model']['architecture'],
         layers=config['model']['layers'],
-        quantize=True,  # Wichtig: Die quantisierbare Architektur-Variante wird hier erstellt
-        requires_grad=True
-    )
+        # Wichtig: Das Modell wird zunächst als FP32-Modell geladen.
+        quantize=False
+    ).to(DEVICE).eval()
 
-    # Schritt 3: "Modell-Chirurgie" (Model Surgery)
-    # Da der 'stem' separat ausgeführt wird, müssen die entsprechenden Eingangs-Layer
-    # im Studenten-Modell durch einen 'Identity'-Layer ersetzt werden.
-    # Ein Identity-Layer gibt seine Eingabe unverändert weiter.
-    if 'mobilenet' in config['model']['architecture']:
-        student_to_quantize.model.features[0] = nn.Identity()
-    elif 'resnet' in config['model']['architecture'] or 'shufflenet' in config['model']['architecture']:
-        setattr(student_to_quantize.model, 'conv1', nn.Identity())
-        setattr(student_to_quantize.model, 'bn1', nn.Identity())
-        setattr(student_to_quantize.model, 'relu', nn.Identity())
-        setattr(student_to_quantize.model, 'maxpool', nn.Identity())
+    # Trenne den Stem (Feature Extractor) und den Studenten (Anomaly Detector).
+    # Der Stem bleibt in FP32, um die Genauigkeit zu erhalten, nur der Student wird quantisiert.
+    stem_model = model_to_quantize.stem_model
+    student_to_quantize = model_to_quantize.student_model
 
-    # Schritt 4: Lade die trainierten Gewichte des Studenten-Modells.
+    # Lade die vortrainierten Gewichte in das Studenten-Modell.
     student_to_quantize.load_state_dict(
-        torch.load(model_weights_path, map_location=device)
+        torch.load(model_weights_path, map_location=DEVICE)
     )
-    student_to_quantize.to(device).eval()
+    student_to_quantize.to(DEVICE).eval()
 
-    # Schritt 5: Vorbereitung der Quantisierung
-    # Wähle die Quantisierungs-Konfiguration. "fbgemm" ist der Standard-Backend für x86-CPUs.
-    qconfig_mapping = get_default_qconfig_mapping("fbgemm")
+    # Wähle die Quantisierungskonfiguration. 'fbgemm' ist der empfohlene Backend für x86-CPUs.
+    qconfig_mapping = get_default_qconfig_mapping('fbgemm')
 
-    # Erstelle einen Beispiel-Input, den `prepare_fx` benötigt, um den Graphen des Modells zu "tracen" (verfolgen).
-    # Der Dummy-Input muss die gleiche Form haben wie die Daten, die das zu quantisierende Modell erwartet.
-    # Hier ist das der Output des `float_stem_model`.
-    dummy_input = torch.randn(
-        1, 3, config['dataset']['img_size'], config['dataset']['img_size'])
-    example_inputs = (float_stem_model(dummy_input),)
+    # Erstelle einen Beispiel-Input, damit FX Tracing den Graphen des Modells analysieren kann.
+    # Die Dimensionen müssen mit der erwarteten Eingabe des Modells übereinstimmen.
+    example_inputs = (stem_model(torch.randn(
+        1, 3, config['dataset']['img_size'], config['dataset']['img_size']
+    )),)
 
-    print("Bereite das Studenten-Modell für die Quantisierung vor...")
-    # `prepare_fx` fügt "Observer" in das Modell ein. Diese Observer sammeln während der Kalibrierung
-    # Statistiken (min/max Werte) über die Aktivierungen, um die optimalen Quantisierungsparameter zu bestimmen.
+    print("Bereite das Studenten-Modell für die Quantisierung vor (FX Graph Transformation)...")
+    # `prepare_fx` fügt "Observer"-Module in den Modellgraphen ein.
+    # Diese Observer sammeln während der Kalibrierung Statistiken (z.B. min/max-Werte) über die Aktivierungen.
     model_prepared = quantize_fx.prepare_fx(
-        student_to_quantize, qconfig_mapping, example_inputs
-    )
+        student_to_quantize, qconfig_mapping, example_inputs)
 
-    # Schritt 6: Kalibrierung
-    # Erstelle den DataLoader mit repräsentativen Daten (hier "gute" Bilder).
+    # Richte den DataLoader für die Kalibrierungsdaten ein.
     calibration_loader = setup_calibration_loader(config)
-    # Führe die Kalibrierung durch, indem die Daten durch das vorbereitete Modell geleitet werden.
-    calibrate_model(model_prepared, calibration_loader, float_stem_model)
 
-    # Schritt 7: Konvertierung
-    print("Konvertiere zum quantisierten Modell...")
-    # `convert_fx` entfernt die Observer und ersetzt die Gleitkomma-Module (z.B. Conv2d)
-    # durch ihre quantisierten Äquivalente (z.B. QuantizedConv2d).
+    # Führe die Kalibrierung durch, um die Observer mit Daten zu füttern.
+    calibrate_model(model_prepared, calibration_loader, stem_model)
+
+    print("Konvertiere das vorbereitete Modell zum endgültigen quantisierten Modell...")
+    # `convert_fx` verwendet die gesammelten Statistiken, um die Gewichte und Aktivierungen
+    # von FP32 in INT8 zu konvertieren und die Observer zu entfernen.
     quantized_student_model = quantize_fx.convert_fx(model_prepared)
 
-    # Schritt 8: Speichern
-    # Speichere das fertig quantisierte Modell und die dazugehörigen Artefakte.
+    # Speichere das quantisierte Modell und die zugehörigen Artefakte.
     save_artifacts(quantized_student_model, config, summary_metric)
 
 
-def setup_calibration_loader(config):
+def setup_calibration_loader(config: dict) -> DataLoader:
     """
-    Bereitet den DataLoader für die Kalibrierung vor.
-    Die Kalibrierung sollte mit Daten erfolgen, die die typische Verteilung der Eingabedaten widerspiegeln.
+    Erstellt und konfiguriert einen DataLoader für die Kalibrierungsphase.
 
     Args:
-        config (dict): Konfigurationsparameter für den Datensatz und die Kalibrierung.
+        config (dict): Das Konfigurationswörterbuch mit Datensatzinformationen.
 
     Returns:
-        DataLoader: Ein DataLoader mit den Kalibrierungsdaten.
+        DataLoader: Ein DataLoader, der "gute" (anomaliefreie) Trainingsbilder liefert.
     """
-    print("Erstelle den Kalibrierungs-Daten-Lader...")
+    print("Erstelle den Kalibrierungs-Daten-Loader...")
     train_set = MVTecDataset(
         img_size=config['dataset']['img_size'],
         base_path=config['dataset']['base_path'],
         cls=config['dataset']['class'],
         mode='train',
-        # Nur "gute" Bilder werden zur Kalibrierung verwendet
+        # Zur Kalibrierung werden nur "gute" Bilder verwendet, da sie die
+        # typische Datenverteilung im Normalbetrieb repräsentieren.
         subfolders=['good']
     )
     return DataLoader(train_set, batch_size=16, shuffle=True)
 
 
-def calibrate_model(model, calibration_loader, stem_model):
+def calibrate_model(model: torch.nn.Module, calibration_loader: DataLoader, stem_model: torch.nn.Module):
     """
-    Führt die Kalibrierung des vorbereiteten Modells durch.
-    Dabei werden Daten durch das Netzwerk geschickt, damit die Observer Statistiken sammeln können.
+    Führt den Kalibrierungsprozess durch, indem Daten durch das vorbereitete Modell geleitet werden.
 
     Args:
-        model (torch.nn.Module): Das vorbereitete Modell, das kalibriert werden soll.
-        calibration_loader (DataLoader): DataLoader mit den Kalibrierungsdaten.
-        stem_model (torch.nn.Module): Das FP32-Stem-Modell.
+        model (torch.nn.Module): Das mit Observern vorbereitete Modell.
+        calibration_loader (DataLoader): Der DataLoader mit Kalibrierungsdaten.
+        stem_model (torch.nn.Module): Das FP32-Stem-Modell zur Merkmalsextraktion.
     """
-    print("Kalibriere das Modell...")
+    print("Starte die Kalibrierung des Modells...")
     model.eval()
     stem_model.eval()
-    with torch.no_grad():  # Gradientenberechnung ist hier nicht nötig
+
+    # `torch.no_grad()` deaktiviert die Gradientenberechnung, was Speicher und Rechenzeit spart,
+    # da für die Kalibrierung kein Training (Backpropagation) erforderlich ist.
+    with torch.no_grad():
         for i, (images, _, _, _) in enumerate(calibration_loader):
             if i >= CALIBRATION_BATCHES:
                 break
-            # Zuerst werden die Bilder durch den FP32-Stem geleitet.
+            # 1. Extrahiere Merkmale mit dem FP32-Stem-Modell.
             stem_output = stem_model(images.to(DEVICE))
-            # Der Output des Stems wird dann in das vorbereitete Modell gegeben, um die Observer zu füttern.
+            # 2. Leite die Merkmale durch das vorbereitete Modell.
+            #    Dies füttert die Observer mit Daten, damit sie die Verteilungsstatistiken lernen.
             model(stem_output)
+
     print("Kalibrierung abgeschlossen.")
 
 
-def save_artifacts(model, config, summary_metric):
+def save_artifacts(model: torch.nn.Module, config: dict, summary_metric: dict):
     """
-    Speichert das quantisierte Modell, die zugehörige Konfiguration und die Trainings-Metriken.
+    Speichert das quantisierte Modell, die Konfiguration und die Trainingsmetriken in einem strukturierten Verzeichnis.
 
     Args:
-        model (torch.nn.Module): Das quantisierte Modell.
-        config (dict): Die Konfigurationsparameter.
-        summary_metric (dict): Die Trainings-Metriken.
+        model (torch.nn.Module): Das fertig quantisierte Modell.
+        config (dict): Die Konfigurationsparameter des Laufs.
+        summary_metric (dict): Die zugehörigen Trainings-Metriken.
     """
-    # Erzeuge einen eindeutigen Pfad basierend auf den Konfigurationsdetails.
+    # Erzeuge einen eindeutigen Pfad basierend auf Datensatz, Modellarchitektur und Trainings-ID.
     run_id = summary_metric.get('training_id', 'quantized_run')
     base_path = Path('quantized_models') / \
         f"{config['dataset']['name']}_{config['dataset']['class']}" / \
         config['model']['architecture'] / run_id
 
-    # Erstelle die Verzeichnisse, falls sie nicht existieren.
+    # Erstelle die Verzeichnisstruktur, falls sie noch nicht existiert.
     base_path.mkdir(parents=True, exist_ok=True)
 
-    # Speichere die Konfigurations-Datei (YAML).
+    # Speichere die Konfigurationsdatei (YAML).
     config_path = base_path / \
         f"STFPM_Config_{config['model']['architecture']}.yaml"
     with config_path.open('w') as f:
@@ -186,4 +171,5 @@ def save_artifacts(model, config, summary_metric):
     # Speichere die Gewichte des quantisierten Modells.
     model_path = base_path / 'quantized_model.pth'
     torch.save(model.state_dict(), model_path)
-    print(f"Quantisiertes Modell und Artefakte gespeichert unter: {base_path}")
+    print(
+        f"Quantisiertes Modell und Artefakte erfolgreich gespeichert unter: {base_path}")
