@@ -2,6 +2,7 @@
 Images/
 .dockerignore
 Inference_Runs/
+Inference_Runs_timm/
 quantized_models/
 quantized_inference_results/
 Training_Runs/
