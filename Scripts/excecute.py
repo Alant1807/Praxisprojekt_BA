@@ -96,9 +96,10 @@ def training_selected_class(config_path, selected_class):
                             shuffle=False
                         )
                         
-                        model = STFPM(
+                        model = STFPM_QuantizedModels(
                             architecture=config['model']['architecture'],
-                            layers=config['model']['layers']
+                            layers=config['model']['layers'],
+                            quantize=False
                         )
 
                         trainer = Trainer(
@@ -302,7 +303,8 @@ def inference_model(training_run_folder, inference_output_dir):
 
         model = STFPM_QuantizedModels(
             architecture=config_data['model']['architecture'],
-            layers=config_data['model']['layers']
+            layers=config_data['model']['layers'],
+            quantize=False
         )
 
         inference = Inference(

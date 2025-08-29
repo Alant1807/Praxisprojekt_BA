@@ -34,6 +34,8 @@ class STFPM_QuantizedModels(nn.Module):
     def __init__(self, architecture: str, layers: List[str], quantize=False):
         super().__init__()
 
+        self.quantize = quantize
+
         # Lehrer-Modell: Nutzt vortrainierte Gewichte und wird nicht trainiert (eval mode).
         # Es dient als Referenz für "normale" Merkmale.
         self.teacher_model = FeatureExtractor(
@@ -67,33 +69,34 @@ class STFPM_QuantizedModels(nn.Module):
         teacher_backbone = self.teacher_model.model
         student_backbone = self.student_model.model
         stem_layers = []
-        model_name = teacher_backbone.__class__.__name__.lower()
+        source_backbone = student_backbone if self.quantize else teacher_backbone
+        model_name = source_backbone.__class__.__name__.lower()
 
         # Spezifische Logik für ResNet- und ShuffleNet-Architekturen
         if 'resnet' in model_name or 'shufflenet' in model_name:
             stem_layer_names = ['conv1', 'bn1', 'relu', 'maxpool']
             for name in stem_layer_names:
-                if hasattr(teacher_backbone, name):
+                if hasattr(source_backbone, name):
                     # Füge den Layer zum Stem hinzu
-                    stem_layers.append(getattr(teacher_backbone, name))
+                    stem_layers.append(getattr(source_backbone, name))
                     # Ersetze den extrahierten Layer im Originalmodell durch eine Identity-Funktion
                     setattr(teacher_backbone, name, nn.Identity())
                     setattr(student_backbone, name, nn.Identity())
 
         # Spezifische Logik für MobileNet
         elif 'mobilenet' in model_name:
-            if hasattr(teacher_backbone, 'features') and isinstance(teacher_backbone.features, nn.Sequential):
-                stem_module = teacher_backbone.features[0]
+            if hasattr(source_backbone, 'features') and isinstance(source_backbone.features, nn.Sequential):
+                stem_module = source_backbone.features[0]
                 stem_layers.append(stem_module)
                 teacher_backbone.features[0] = nn.Identity()
                 student_backbone.features[0] = nn.Identity()
         else:
             raise ValueError(
-                f"Architektur '{teacher_backbone.__class__.__name__}' wird für die Stem-Extraktion nicht unterstützt.")
+                f"Architektur '{source_backbone.__class__.__name__}' wird für die Stem-Extraktion nicht unterstützt.")
 
         if not stem_layers:
             raise ValueError(
-                f"Für {teacher_backbone.__class__.__name__} konnten keine Stem-Layer extrahiert werden.")
+                f"Für {source_backbone.__class__.__name__} konnten keine Stem-Layer extrahiert werden.")
 
         return nn.Sequential(*stem_layers)
 
@@ -120,6 +123,10 @@ class STFPM_QuantizedModels(nn.Module):
             # 1. Normalisiere die Feature-Maps entlang der Kanal-Dimension.
             #    Dies entspricht der Berechnung der Kosinus-Ähnlichkeit und macht den Vergleich
             #    unabhängig von der Magnitude der Aktivierungen.
+            if self.quantize:
+                t_map = t_map.dequantize()
+                s_map = s_map.dequantize()
+
             t_map_norm = torch.nn.functional.normalize(t_map, dim=1)
             s_map_norm = torch.nn.functional.normalize(s_map, dim=1)
 
@@ -236,7 +243,7 @@ class FeatureExtractor(nn.Module):
         # Der eigentliche Output des Modells wird ignoriert (`_`).
         # Der Zweck dieses Passes ist es, die Hooks zu aktivieren, welche `self.features` füllen.
         # Wenn das Modell nicht trainiert wird, kann dies in einem `no_grad`-Kontext geschehen, um Speicher zu sparen.
-        if not next(self.model.parameters()).requires_grad:
+        if not self.model.training:
             with torch.no_grad():
                 _ = self.model(x)
         else:

@@ -15,6 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.ao.quantization import get_default_qconfig_mapping, quantize_fx
 import yaml
+import copy
 
 # Lokale Module (benutzerdefinierte Klassen)
 from Scripts.model import STFPM
@@ -24,7 +25,7 @@ from Scripts.dataset import MVTecDataset
 # --- Konstanten ---
 # Definiert die Anzahl der Daten-Batches für die Kalibrierung.
 # Eine höhere Anzahl kann die Genauigkeit verbessern, erhöht aber die Dauer des Quantisierungsprozesses.
-CALIBRATION_BATCHES = 200
+CALIBRATION_BATCHES = 300
 # Legt das Zielgerät fest. Quantisierung wird typischerweise für die CPU-Inferenz optimiert.
 DEVICE = torch.device('cpu')
 
@@ -49,8 +50,8 @@ def quantize_model(model_weights_path: str, config: dict, summary_metric: dict):
 
     # Trenne den Stem (Feature Extractor) und den Studenten (Anomaly Detector).
     # Der Stem bleibt in FP32, um die Genauigkeit zu erhalten, nur der Student wird quantisiert.
-    stem_model = model_to_quantize.stem_model
-    student_to_quantize = model_to_quantize.student_model
+    stem_model = model_to_quantize.stem_model.eval()
+    student_to_quantize = model_to_quantize.student_model.eval()
 
     # Lade die vortrainierten Gewichte in das Studenten-Modell.
     student_to_quantize.load_state_dict(
