@@ -15,7 +15,7 @@ import torchvision.models.quantization
 from typing import List, Dict, Tuple
 
 
-class STFPM(nn.Module):
+class STFPM_QuantizedModels(nn.Module):
     """
     Implementiert das STFPM-Modell, das auf dem Vergleich der Merkmale eines
     festen, vortrainierten Lehrer-Modells und eines trainierbaren Schüler-Modells basiert.
@@ -31,7 +31,7 @@ class STFPM(nn.Module):
         quantize (bool): Gibt an, ob ein quantisiertes Modell verwendet werden soll.
     """
 
-    def __init__(self, architecture: str, layers: List[str], quantize: bool = False):
+    def __init__(self, architecture: str, layers: List[str], quantize=False):
         super().__init__()
 
         # Lehrer-Modell: Nutzt vortrainierte Gewichte und wird nicht trainiert (eval mode).

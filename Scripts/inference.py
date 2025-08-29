@@ -118,29 +118,29 @@ class Inference:
         get_anomaly_scores = list()
 
         total_inference_time = 0.0
-        with torch.no_grad():
-            for images, names, _, labels in tqdm(self.test_loader, desc="Evaluating", leave=False):
-                img_t = images.to(
-                    self.device, memory_format=self.actual_memory_format)
-                if self.device.type == 'cuda':
-                    torch.cuda.synchronize()
+        with profile(activities=[ProfilerActivity.CPU], record_shapes=True, with_stack=True) as prof:
+            with torch.no_grad():
+                for images, names, _, labels in tqdm(self.test_loader, desc="Evaluating", leave=False):
+                    img_t = images.to(
+                        self.device, memory_format=self.actual_memory_format)
 
-                start_time = time.perf_counter()
-                # with torch.autocast(device_type=self.device.type):
-                anomaly_map = self.model.anomaly_map(img_t)
+                    start_time = time.perf_counter()
 
-                if self.device.type == 'cuda':
-                    torch.cuda.synchronize()
+                    with record_function("anomaly_map_inference"):
+                        anomaly_map = self.model.anomaly_map(img_t)
 
-                end_time = time.perf_counter()
-                total_inference_time += (end_time - start_time)
+                    end_time = time.perf_counter()
+                    total_inference_time += (end_time - start_time)
 
-                get_labels.extend(labels.cpu().numpy().tolist())
-                get_anomaly_scores.extend(torch.amax(
-                    anomaly_map, dim=(1, 2)).detach().cpu().numpy())
+                    get_labels.extend(labels.cpu().numpy().tolist())
+                    get_anomaly_scores.extend(torch.amax(
+                        anomaly_map, dim=(1, 2)).detach().cpu().numpy())
 
-                self.save_anomaly_maps(
-                    anomaly_map, names, self.anomaly_maps_dir_for_run)
+                    self.save_anomaly_maps(
+                        anomaly_map, names, self.anomaly_maps_dir_for_run)
+
+        print("\n--- PyTorch Profiler-Analyse ---")
+        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=15))
 
         return roc_auc_score(get_labels, get_anomaly_scores), total_inference_time
 

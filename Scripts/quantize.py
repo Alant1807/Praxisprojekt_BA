@@ -17,7 +17,8 @@ from torch.ao.quantization import get_default_qconfig_mapping, quantize_fx
 import yaml
 
 # Lokale Module (benutzerdefinierte Klassen)
-from Scripts.model2 import STFPM
+from Scripts.model import STFPM
+from Scripts.model2 import *
 from Scripts.dataset import MVTecDataset
 
 # --- Konstanten ---
@@ -40,10 +41,9 @@ def quantize_model(model_weights_path: str, config: dict, summary_metric: dict):
     print("Lade FP32-Modelle für die Quantisierung...")
     # Initialisiere das gesamte STFPM-Modell, um Zugriff auf den `stem_model` (in FP32)
     # und den `student_model` (zu quantisieren) zu erhalten.
-    model_to_quantize = STFPM(
+    model_to_quantize = STFPM_QuantizedModels(
         architecture=config['model']['architecture'],
         layers=config['model']['layers'],
-        # Wichtig: Das Modell wird zunächst als FP32-Modell geladen.
         quantize=False
     ).to(DEVICE).eval()
 
@@ -130,11 +130,7 @@ def calibrate_model(model: torch.nn.Module, calibration_loader: DataLoader, stem
         for i, (images, _, _, _) in enumerate(calibration_loader):
             if i >= CALIBRATION_BATCHES:
                 break
-            # 1. Extrahiere Merkmale mit dem FP32-Stem-Modell.
-            stem_output = stem_model(images.to(DEVICE))
-            # 2. Leite die Merkmale durch das vorbereitete Modell.
-            #    Dies füttert die Observer mit Daten, damit sie die Verteilungsstatistiken lernen.
-            model(stem_output)
+            model(stem_model(images.to(DEVICE)))
 
     print("Kalibrierung abgeschlossen.")
 

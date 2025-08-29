@@ -3,6 +3,7 @@ import yaml
 from Scripts.dataset import *
 from torch.utils.data import DataLoader
 from Scripts.model2 import *
+from Scripts.model import *
 from Scripts.trainer import *
 from Scripts.results_manager import *
 #from Scripts.asymmetric_model import *
@@ -299,7 +300,7 @@ def inference_model(training_run_folder, inference_output_dir):
                 f"Fehler beim Laden des Test-Datensatzes für {yaml_path}: {e}")
             continue
 
-        model = STFPM(
+        model = STFPM_QuantizedModels(
             architecture=config_data['model']['architecture'],
             layers=config_data['model']['layers']
         )
@@ -308,6 +309,7 @@ def inference_model(training_run_folder, inference_output_dir):
             model,
             test_loader,
             config_data,
+            inference_output_dir,
             path_to_student_weight=summary_data.get(
                 "Pfad_der_Gewichte", {}).get("Pfad_bester_Gewichte"),
             trainings_id=summary_data.get('training_id')
@@ -320,6 +322,6 @@ def inference_model(training_run_folder, inference_output_dir):
         print(
             f"Inferenz für Konfiguration {yaml_path} abgeschlossen. \nAUROC: {auroc_score}, Inferenzzeit: {total_inference_time} Sekunden.")
 
-        inference.generate_heatmaps_from_saved_maps()
+        #inference.generate_heatmaps_from_saved_maps()
 
     print("\n--- Alle Inferenzläufe abgeschlossen. ---")
